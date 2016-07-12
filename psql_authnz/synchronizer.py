@@ -40,7 +40,7 @@ class Synchronizer:
                 self.ldap_conn.simple_bind_s()
         except ldap.LDAPError, e:
             logging.error(e)
-            raise PSQLAuthnzLDAPFailure()
+            raise PSQLAuthnzLDAPException()
 
     def connect_to_psql(self, pg_user, pg_host, pg_password):
         # Connect to Postgres using provided credentials
