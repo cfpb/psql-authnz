@@ -44,8 +44,17 @@ class Synchronizer:
 
     def connect_to_psql(self, pg_user, pg_host, pg_password):
         # Connect to Postgres using provided credentials
+        conn_string = "dbname=postgres"
+
+        if pg_user:
+            conn_string += " user={}".format(pg_user)
+        if pg_host:
+            conn_string += " host={}".format(pg_host)
+        if pg_password:
+            conn_string += " password={}".format(pg_password)
+
         try:
-            self.psql_conn = psycopg2.connect("dbname=postgres user={} host={} password={}".format(pg_user, pg_host, pg_password))
+            self.psql_conn = psycopg2.connect(conn_string)
             self.psql_conn.autocommit = True
             self.psql_cur = self.psql_conn.cursor()
         except psycopg2.Error as e:

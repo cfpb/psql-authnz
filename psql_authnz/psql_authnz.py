@@ -16,9 +16,9 @@ def main():
     ldap_port       = os.getenv("PSQL_AUTHNZ_LDAP_PORT", "389")
     domain          = os.getenv("PSQL_AUTHNZ_LDAP_DOMAIN", "dc=test,dc=dev")
     group_ou        = os.getenv("PSQL_AUTHNZ_GROUP_OU", "ou=Groups")
-    pg_host         = os.getenv("PGHOST", "")
-    pg_user         = os.getenv("PGUSER", "")
-    pg_password     = os.getenv("PGPASSWORD", "")
+    pg_host         = os.getenv("PGHOST", None)
+    pg_user         = os.getenv("PGUSER", None)
+    pg_password     = os.getenv("PGPASSWORD", None)
     exit_code       = 0
 
     # Setup logging
