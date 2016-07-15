@@ -23,7 +23,7 @@ class Synchronizer:
                 self.psql_cur.close()
             self.psql_conn.close()
 
-    def connect_to_ldap(self, ldap_protocol, ldap_host, ldap_port, username, password):
+    def connect_to_ldap(self, ldap_protocol, ldap_host, ldap_port, username, password, method='BASIC'):
         """
         Attempt to connect to Active Directory (LDAP)
         """
@@ -33,11 +33,17 @@ class Synchronizer:
 
             # If a username and password is provided, we assume
             # SASL's DIGESTMD5 authentication method.
-            if username and password:
-                auth_tokens = ldap.sasl.digest_md5(username, password)
-                self.ldap_conn.sasl_interactive_bind_s("", auth_tokens)
+            if method == "DIGESTMD5":
+                if username and password:
+                    auth_tokens = ldap.sasl.digest_md5(username, password)
+                    self.ldap_conn.sasl_interactive_bind_s("", auth_tokens)
+                else:
+                    raise PSQLAuthnzLDAPException("A username and password must supplied for DIGESTMD5 authentication.")
             else:
-                self.ldap_conn.simple_bind_s()
+                if username and password:
+                    self.ldap_conn.simple_bind_s(username, password)
+                else:
+                    self.ldap_conn.simple_bind_s()
         except ldap.LDAPError, e:
             logging.error(e)
             raise PSQLAuthnzLDAPException()

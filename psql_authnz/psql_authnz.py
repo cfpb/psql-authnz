@@ -15,6 +15,7 @@ def main():
     ldap_host       = os.getenv("PSQL_AUTHNZ_LDAP_HOST", "10.0.1.127")
     ldap_port       = os.getenv("PSQL_AUTHNZ_LDAP_PORT", "389")
     domain          = os.getenv("PSQL_AUTHNZ_LDAP_DOMAIN", "dc=test,dc=dev")
+    method          = os.getenv("PSQL_AUTHNZ_LDAP_METHOD", "SIMPLE")
     group_ou        = os.getenv("PSQL_AUTHNZ_GROUP_OU", "ou=Groups")
     pg_host         = os.getenv("PGHOST", None)
     pg_user         = os.getenv("PGUSER", None)
@@ -27,7 +28,7 @@ def main():
 
     with Synchronizer() as synchronizer:
         try:
-            synchronizer.connect_to_ldap(ldap_protocol, ldap_host, ldap_port, username, password)
+            synchronizer.connect_to_ldap(ldap_protocol, ldap_host, ldap_port, username, password, method)
             synchronizer.connect_to_psql(pg_user, pg_host, pg_password)
 
             logging.info("Synchronizing server {} to {},{}.".format(pg_host, group_ou, domain))
