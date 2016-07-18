@@ -72,7 +72,7 @@ class Synchronizer:
         Retrieve all groups within the specified OU.
         """
         try:
-            groups_search_base = group_ou + "," + domain
+            groups_search_base = '"' + group_ou + ',' + domain + '"'
             groups = self.ldap_conn.search_s(groups_search_base, ldap.SCOPE_SUBTREE, "(objectCLass={0})".format(group_class))
         except ldap.LDAPError, e:
             logging.error(e)
