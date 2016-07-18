@@ -67,7 +67,7 @@ class Synchronizer:
             logging.error(e)
             raise PSQLAuthnzPSQLException()
 
-    def get_groups(self, group_ou, domain, group_class):
+    def get_groups(self, group_ou, group_class, domain):
         """
         Retrieve all groups within the specified OU.
         """
