@@ -30,6 +30,9 @@ def main():
             synchronizer.connect_to_ldap(ldap_protocol, ldap_host, ldap_port, username, password)
             synchronizer.connect_to_psql(pg_user, pg_host, pg_password)
 
+            if not pg_host:
+                pg_host = "localhost"
+
             logging.info("Synchronizing server {} to {},{}.".format(pg_host, group_ou, domain))
             synchronizer.synchronize(group_ou, domain, group_prefix)
         except PSQLAuthnzException:
