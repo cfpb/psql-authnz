@@ -67,13 +67,13 @@ class Synchronizer:
             logging.error(e)
             raise PSQLAuthnzPSQLException()
 
-    def get_groups(self, group_ou, domain):
+    def get_groups(self, group_ou, domain, group_class):
         """
         Retrieve all groups within the specified OU.
         """
         try:
             groups_search_base = group_ou + "," + domain
-            groups = self.ldap_conn.search_s(groups_search_base, ldap.SCOPE_SUBTREE, "(objectCLass=groupOfNames)")
+            groups = self.ldap_conn.search_s(groups_search_base, ldap.SCOPE_SUBTREE, "(objectCLass={0})".format(group_class))
         except ldap.LDAPError, e:
             logging.error(e)
             sys.exit(1)
@@ -189,9 +189,9 @@ class Synchronizer:
 
         return True
 
-    def synchronize(self, group_ou, domain, prefix):
+    def synchronize(self, group_ou, group_class, domain, prefix):
         group_count = 0
-        for group in self.get_groups(group_ou, domain):
+        for group in self.get_groups(group_ou, group_class, domain):
             if self.synchronize_group(group, prefix):
                 group_count += 1
 

@@ -17,6 +17,7 @@ def main():
     domain          = os.getenv("PSQL_AUTHNZ_LDAP_DOMAIN", "dc=test,dc=dev")
     method          = os.getenv("PSQL_AUTHNZ_LDAP_METHOD", "SIMPLE")
     group_ou        = os.getenv("PSQL_AUTHNZ_GROUP_OU", "ou=Groups")
+    group_class     = os.getenv("PSQL_AUTHNZ_GROUP_CLASS", "groupOfNames")
     pg_host         = os.getenv("PGHOST", None)
     pg_user         = os.getenv("PGUSER", None)
     pg_password     = os.getenv("PGPASSWORD", None)
@@ -35,7 +36,7 @@ def main():
                 pg_host = "localhost"
 
             logging.info("Synchronizing server {} to {},{}.".format(pg_host, group_ou, domain))
-            synchronizer.synchronize(group_ou, domain, group_prefix)
+            synchronizer.synchronize(group_ou, group_class, domain, group_prefix)
         except PSQLAuthnzException:
             exit_code = 1
 
