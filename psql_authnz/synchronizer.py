@@ -73,6 +73,7 @@ class Synchronizer:
         """
         try:
             groups_search_base = '"' + group_ou + ',' + domain + '"'
+            logging.debug("Group search base: {0}".format(groups_search_base))
             groups = self.ldap_conn.search_s(groups_search_base, ldap.SCOPE_SUBTREE, "(objectCLass={0})".format(group_class))
         except ldap.LDAPError, e:
             logging.error(e)
