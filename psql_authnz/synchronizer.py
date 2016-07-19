@@ -101,7 +101,7 @@ class Synchronizer:
             else:
                 try:
                     # UID not contained in DN, attempt to retrieve it via LDAP.
-                    user_attrs = self.ldap_conn.search_s(member, ldap.SCOPE_BASE, "(objectClass=*)")
+                    member_attrs = self.ldap_conn.search_s(member, ldap.SCOPE_BASE, "(objectClass=*)")
                 except ldap.LDAPError, e:
                     logging.error(e)
                     raise PSQLAuthnzLDAPException("Failed to retrieve user attributes from supplied DN.")
