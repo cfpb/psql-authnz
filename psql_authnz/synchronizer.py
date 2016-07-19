@@ -109,7 +109,7 @@ class Synchronizer:
                 logging.debug(member_attrs)
 
                 if member_attrs:
-                    username = member_attrs[0][1]["uid"]
+                    username = member_attrs[0][1]["userPrincipalName"]
                 else:
                     logging.warning("Could not extract or lookup username from {}, skipping...".format(member))
                     continue
