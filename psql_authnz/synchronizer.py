@@ -30,6 +30,7 @@ class Synchronizer:
         try:
             ldap_connection_string = "{}://{}:{}".format(ldap_protocol, ldap_host, ldap_port)
             self.ldap_conn = ldap.initialize(ldap_connection_string)
+            self.ldap_conn.set_option(ldap.OPT_REFERRALS, 0)
 
             # If a username and password is provided, we assume
             # SASL's DIGESTMD5 authentication method.
@@ -72,7 +73,7 @@ class Synchronizer:
         Retrieve all groups within the specified OU.
         """
         try:
-            groups_search_base = '"' + group_ou + ',' + domain + '"'
+            groups_search_base = group_ou + ',' + domain
             logging.debug("Group search base: {0}".format(groups_search_base))
             groups = self.ldap_conn.search_s(groups_search_base, ldap.SCOPE_SUBTREE, "(objectCLass={0})".format(group_class))
         except ldap.LDAPError, e:
