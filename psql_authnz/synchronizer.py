@@ -168,7 +168,7 @@ class Synchronizer:
             # Then, add the user to the role
             self.psql_cur.execute("GRANT \"{}\" TO \"{}\"".format(role_name, user))
 
-    def synchronize_group(self, group, prefix):
+    def synchronize_group(self, group, prefix, blacklist):
         """
         Syncronize the membership between an LDAP group and a PostgreSQL role
         """
@@ -183,6 +183,9 @@ class Synchronizer:
             role_name = role_match.groups('role_name')[0]
         else:
             logging.warning("Group '{0}' did not match the required pattern, skipping...".format(group_name))
+            return False
+
+        if role_name in blacklist:
             return False
 
         # First, ensure that the role exists
@@ -203,10 +206,10 @@ class Synchronizer:
 
         return True
 
-    def synchronize(self, group_ou, group_class, domain, prefix):
+    def synchronize(self, group_ou, group_class, domain, prefix, blacklist):
         group_count = 0
         for group in self.get_groups(group_ou, group_class, domain):
-            if self.synchronize_group(group, prefix):
+            if self.synchronize_group(group, prefix, blacklist):
                 group_count += 1
 
         logging.info("Successfully synchronized {} group(s) from {},{}".format(group_count, group_ou, domain))
