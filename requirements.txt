@@ -1,0 +1,2 @@
+pyldap
+psycopg2
