@@ -18,6 +18,7 @@ def main():
     method          = os.getenv("PSQL_AUTHNZ_LDAP_METHOD", "SIMPLE")
     group_ou        = os.getenv("PSQL_AUTHNZ_GROUP_OU", "ou=Groups")
     group_class     = os.getenv("PSQL_AUTHNZ_GROUP_CLASS", "groupOfNames")
+    global_groups   = os.getenv("PSQL_AUTHNZ_GLOBAL_GROUPS", None)
     blacklist       = os.getenv("PSQL_AUTHNZ_BLACKLIST", "").split(",")
     pg_host         = os.getenv("PGHOST", None)
     pg_user         = os.getenv("PGUSER", None)
@@ -28,7 +29,7 @@ def main():
     LOG_FORMAT = "%(asctime)-15s PSQL-AUTHNZ [%(levelname)-5s]: %(filename)-15s:%(lineno)-3s - %(message)s"
     logging.basicConfig(format=LOG_FORMAT,level=getattr(logging, log_level.upper()))
 
-    with Synchronizer() as synchronizer:
+    with Synchronizer(global_groups=global_groups) as synchronizer:
         try:
             synchronizer.connect_to_ldap(ldap_protocol, ldap_host, ldap_port, username, password, method)
             synchronizer.connect_to_psql(pg_user, pg_host, pg_password)
