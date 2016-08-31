@@ -8,6 +8,7 @@ from .exceptions import PSQLAuthnzException
 def main():
     # Retrieve settings from environment variables
     log_level       = os.getenv("PSQL_AUTHNZ_LOG_LEVEL", "info")
+    log_file        = os.getenv("PSQL_AUTHNZ_LOG_FILE", None)
     group_prefix    = os.getenv("PSQL_AUTHNZ_PREFIX", "")
     username        = os.getenv("PSQL_AUTHNZ_LDAP_USERNAME", None)
     password        = os.getenv("PSQL_AUTHNZ_LDAP_PASSWORD", None)
@@ -30,7 +31,7 @@ def main():
 
     # Setup logging
     LOG_FORMAT = "%(asctime)-15s PSQL-AUTHNZ [%(levelname)-5s]: %(filename)-15s:%(lineno)-3s - %(message)s"
-    logging.basicConfig(format=LOG_FORMAT,level=getattr(logging, log_level.upper()))
+    logging.basicConfig(filename=log_file,format=LOG_FORMAT,level=getattr(logging, log_level.upper()))
 
     with Synchronizer(global_groups=global_groups) as synchronizer:
         try:
