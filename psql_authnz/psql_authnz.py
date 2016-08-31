@@ -25,6 +25,9 @@ def main():
     pg_password     = os.getenv("PGPASSWORD", None)
     exit_code       = 0
 
+    if global_groups:
+        global_groups = global_groups.split(",")
+
     # Setup logging
     LOG_FORMAT = "%(asctime)-15s PSQL-AUTHNZ [%(levelname)-5s]: %(filename)-15s:%(lineno)-3s - %(message)s"
     logging.basicConfig(format=LOG_FORMAT,level=getattr(logging, log_level.upper()))
