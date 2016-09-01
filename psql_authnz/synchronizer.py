@@ -9,10 +9,16 @@ import ldap
 from .exceptions import PSQLAuthnzLDAPException, PSQLAuthnzPSQLException
 
 class Synchronizer:
-    def __init__(self):
+    def __init__(self, global_groups=None):
+        """
+        Initializes a syncronizer, with placeholders for the LDAP and PSQL
+        connections, plus an optional `global_groups` variable for groups
+        that all users should be added to.
+        """
         self.ldap_conn = None
         self.psql_conn = None
         self.psql_cur = None
+        self.global_groups = global_groups
 
     def __enter__(self):
         return self
@@ -164,6 +170,20 @@ class Synchronizer:
                         NOCREATEROLE
                     """.format(user)
                 )
+
+                if self.global_groups:
+                    logging.info(
+                        "Adding user {0} to global groups: {1}".format(
+                            user, ", ".join(self.global_groups)
+                        )
+                    )
+
+                    for group in self.global_groups:
+                        self.psql_cur.execute(
+                            """
+                            GRANT {0} TO {1}
+                            """.format(group, user)
+                        )
 
             # Then, add the user to the role
             self.psql_cur.execute("GRANT \"{}\" TO \"{}\"".format(role_name, user))
