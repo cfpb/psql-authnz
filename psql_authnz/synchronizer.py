@@ -218,11 +218,11 @@ class Synchronizer:
         # Second, extract each member from the list.
         authorized_users = self.extract_users(group_members)
 
-        # Third, remove all users that are not on the list
-        self.purge_unauthorized_users(role_name, authorized_users)
-
-        # Lastly, add authorized users to the role
+        # Third, add authorized users to the role
         self.add_authorized_users(role_name, authorized_users)
+
+        # Lastly, remove all users that are not on the list
+        self.purge_unauthorized_users(role_name, authorized_users)
 
         return True
 
