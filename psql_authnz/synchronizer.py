@@ -163,7 +163,7 @@ class Synchronizer:
             )
             result = self.psql_cur.fetchone()
             if not result or result[0] == 0:
-                logging.info("Created new role '{}'".format(user)
+                logging.info("Created new role '{}'".format(user))
                 self.psql_cur.execute(
                     """
                     CREATE ROLE \"{}\" INHERIT NOSUPERUSER NOCREATEDB \
