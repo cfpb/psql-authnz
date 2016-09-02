@@ -120,10 +120,10 @@ class Synchronizer:
                     logging.warning("Could not extract or lookup username from {}, skipping...".format(member))
                     continue
 
-            # Remove anthing after an @
+            # Remove anything after an @
             username = username.split("@")[0]
 
-            users.append(username)
+            users.append(username.lower())
 
         logging.debug("User list from LDAP: {}".format(users))
         return users
@@ -163,7 +163,7 @@ class Synchronizer:
             )
             result = self.psql_cur.fetchone()
             if not result or result[0] == 0:
-                logging.info("Created new role '{}'".format(user))
+                logging.info("Created new role '{}'".format(user)
                 self.psql_cur.execute(
                     """
                     CREATE ROLE \"{}\" INHERIT NOSUPERUSER NOCREATEDB \
