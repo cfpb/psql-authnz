@@ -120,10 +120,10 @@ class Synchronizer:
                     logging.warning("Could not extract or lookup username from {}, skipping...".format(member))
                     continue
 
-            # Remove anthing after an @
+            # Remove anything after an @
             username = username.split("@")[0]
 
-            users.append(username)
+            users.append(username.lower())
 
         logging.debug("User list from LDAP: {}".format(users))
         return users
@@ -218,11 +218,11 @@ class Synchronizer:
         # Second, extract each member from the list.
         authorized_users = self.extract_users(group_members)
 
-        # Third, remove all users that are not on the list
-        self.purge_unauthorized_users(role_name, authorized_users)
-
-        # Lastly, add authorized users to the role
+        # Third, add authorized users to the role
         self.add_authorized_users(role_name, authorized_users)
+
+        # Lastly, remove all users that are not on the list
+        self.purge_unauthorized_users(role_name, authorized_users)
 
         return True
 
