@@ -40,18 +40,22 @@ class Synchronizer:
 
             # If a username and password is provided, we assume
             # SASL's DIGESTMD5 authentication method.
+            logging.debug("Connecting using method: {0}".format(method))
             if method == "DIGESTMD5":
                 if username and password:
+                    logging.debug("Username and password provided, attempting DIGEST MD5 connection.")
                     auth_tokens = ldap.sasl.digest_md5(username, password)
                     self.ldap_conn.sasl_interactive_bind_s("", auth_tokens)
                 else:
                     raise PSQLAuthnzLDAPException("A username and password must supplied for DIGESTMD5 authentication.")
             else:
                 if username and password:
+                    logging.debug("Username and password provided, attempting simple bind connection.")
                     self.ldap_conn.simple_bind_s(username, password)
                 else:
+                    logging.debug("No username and password provided, attempting anonymous connection.")
                     self.ldap_conn.simple_bind_s()
-        except ldap.LDAPError, e:
+        except e:
             logging.error(e)
             raise PSQLAuthnzLDAPException()
 
