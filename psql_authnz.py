@@ -7,5 +7,7 @@ psql_period = os.getenv("PSQL_AUTHNZ_PERIOD", 300)
 
 if __name__ == '__main__':
     while True:
-        main()
+        exit_code = main()
+        if exit_code != 0:
+            break
         time.sleep(psql_period)

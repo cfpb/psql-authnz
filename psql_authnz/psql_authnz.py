@@ -35,9 +35,13 @@ def main():
 
     with Synchronizer(global_groups=global_groups) as synchronizer:
         try:
+            logging.debug("Attempting to connect to LDAP...")
             synchronizer.connect_to_ldap(ldap_protocol, ldap_host, ldap_port, username, password, method)
+            logging.debug("Attempting to connect to PSQL...")
             synchronizer.connect_to_psql(pg_user, pg_host, pg_password)
 
+            # pg_host should be None when intiating PSQL connection,
+            # setting it to 'localhost' here for display.
             if not pg_host:
                 pg_host = "localhost"
 
