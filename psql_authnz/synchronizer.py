@@ -55,7 +55,7 @@ class Synchronizer:
                 else:
                     logging.debug("No username and password provided, attempting anonymous connection.")
                     self.ldap_conn.simple_bind_s()
-        except e:
+        except Exception as e:
             logging.error(e)
             raise PSQLAuthnzLDAPException()
 
