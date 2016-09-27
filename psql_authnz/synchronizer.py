@@ -56,7 +56,7 @@ class Synchronizer:
                     logging.debug("No username and password provided, attempting anonymous connection.")
                     self.ldap_conn.simple_bind_s()
         except Exception as e:
-            logging.error(unicode(e.message).encode('utf-8'))
+            logging.error(e.message.encode('ascii', 'ignore'))
             raise PSQLAuthnzLDAPException()
 
     def connect_to_psql(self, pg_user, pg_host, pg_password):
