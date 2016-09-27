@@ -33,32 +33,31 @@ class Synchronizer:
         """
         Attempt to connect to Active Directory (LDAP)
         """
-#        try:
-        ldap_connection_string = "{}://{}:{}".format(ldap_protocol, ldap_host, ldap_port)
-        self.ldap_conn = ldap.initialize(ldap_connection_string)
-        self.ldap_conn.set_option(ldap.OPT_REFERRALS, 0)
+        try:
+            ldap_connection_string = "{}://{}:{}".format(ldap_protocol, ldap_host, ldap_port)
+            self.ldap_conn = ldap.initialize(ldap_connection_string)
+            self.ldap_conn.set_option(ldap.OPT_REFERRALS, 0)
 
-        # If a username and password is provided, we assume
-        # SASL's DIGESTMD5 authentication method.
-        logging.debug("Connecting using method: {0}".format(method))
-        if method == "DIGESTMD5":
-            if username and password:
-                logging.debug("Username and password provided, attempting DIGEST MD5 connection.")
-                auth_tokens = ldap.sasl.digest_md5(username, password)
-                self.ldap_conn.sasl_interactive_bind_s("", auth_tokens)
+            # If a username and password is provided, we assume
+            # SASL's DIGESTMD5 authentication method.
+            logging.debug("Connecting using method: {0}".format(method))
+            if method == "DIGESTMD5":
+                if username and password:
+                    logging.debug("Username and password provided, attempting DIGEST MD5 connection.")
+                    auth_tokens = ldap.sasl.digest_md5(username, password)
+                    self.ldap_conn.sasl_interactive_bind_s("", auth_tokens)
+                else:
+                    raise PSQLAuthnzLDAPException("A username and password must supplied for DIGESTMD5 authentication.")
             else:
-                raise PSQLAuthnzLDAPException("A username and password must supplied for DIGESTMD5 authentication.")
-        else:
-            if username and password:
-                logging.debug("Username and password provided, attempting simple bind connection.")
-                self.ldap_conn.simple_bind_s(username, password)
-            else:
-                logging.debug("No username and password provided, attempting anonymous connection.")
-                self.ldap_conn.simple_bind_s()
-        #except Exception as e:
-            #logging.error(e.message.encode('ascii', 'ignore'))
-            #raise e
-            #raise PSQLAuthnzLDAPException()
+                if username and password:
+                    logging.debug("Username and password provided, attempting simple bind connection.")
+                    self.ldap_conn.simple_bind_s(username, password)
+                else:
+                    logging.debug("No username and password provided, attempting anonymous connection.")
+                    self.ldap_conn.simple_bind_s()
+        except Exception as e:
+            logging.error(unicode(e.message).encode('utf-8'))
+            raise PSQLAuthnzLDAPException()
 
     def connect_to_psql(self, pg_user, pg_host, pg_password):
         # Connect to Postgres using provided credentials
