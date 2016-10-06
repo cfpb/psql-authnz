@@ -163,7 +163,7 @@ class Synchronizer:
         for user in authorized_users:
             # First, check if the user role exists, and create it if it does not
             self.psql_cur.execute(
-                "SELECT 1 FROM pg_roles WHERE rolname='{0}' and rolcanlogin='t'".format(user)
+                "SELECT 1 FROM pg_roles WHERE rolname='{0}' AND rolcanlogin='t'".format(user)
             )
             result = self.psql_cur.fetchone()
             if not result or result[0] == 0:
