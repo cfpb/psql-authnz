@@ -163,14 +163,14 @@ class Synchronizer:
         for user in authorized_users:
             # First, check if the user role exists, and create it if it does not
             self.psql_cur.execute(
-                "SELECT 1 FROM pg_roles WHERE rolname='{0}'".format(user)
+                "SELECT 1 FROM pg_roles WHERE rolname='{0}' AND rolcanlogin='t'".format(user)
             )
             result = self.psql_cur.fetchone()
             if not result or result[0] == 0:
                 logging.info("Created new role '{}'".format(user))
                 self.psql_cur.execute(
                     """
-                    CREATE ROLE \"{}\" INHERIT NOSUPERUSER NOCREATEDB \
+                    CREATE ROLE \"{}\" LOGIN INHERIT NOSUPERUSER NOCREATEDB \
                         NOCREATEROLE
                     """.format(user)
                 )
@@ -188,6 +188,18 @@ class Synchronizer:
                             GRANT {0} TO {1}
                             """.format(group, user)
                         )
+            #else:
+                # Role exists, ensure that it is a login role
+            #    self.psql_cur.execute(
+            #        "SELECT rolcanlogin FROM pg_roles WHERE rolname='{}'".format(user)
+            #    )
+
+            #    can_login = self.psql_cur.fetchone()
+
+            #    if can_login and can_login[0] == 'f':
+            #        self.psql_cur.execute(
+            #            "UPDATE pg_roles SET rolcanlogin='t' WHERE rolname='{}'".format(user)
+            #        )
 
             # Then, add the user to the role
             self.psql_cur.execute("GRANT \"{}\" TO \"{}\"".format(role_name, user))
