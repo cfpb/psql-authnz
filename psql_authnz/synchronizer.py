@@ -9,7 +9,7 @@ import ldap
 from .exceptions import PSQLAuthnzLDAPException, PSQLAuthnzPSQLException
 
 class Synchronizer:
-    def __init__(self, global_groups=None, logger=None):
+    def __init__(self, global_groups=None, logger=None, pg_ident_file=None):
         """
         Initializes a syncronizer, with placeholders for the LDAP and PSQL
         connections, plus an optional `global_groups` variable for groups
@@ -20,6 +20,7 @@ class Synchronizer:
         self.psql_cur = None
         self.global_groups = global_groups
         self.logger = logger or logging.getLogger(__name__)
+        self.pg_ident_file = pg_ident_file
 
     def __enter__(self):
         return self
@@ -128,15 +129,46 @@ class Synchronizer:
             # Remove anything after an @
             username = username.split("@")[0]
 
-            users.append(username.lower())
+            users.append(username)
 
         self.logger.debug("User list from LDAP: {}".format(users))
         return users
+
+    def add_pgident_mapping(self, user):
+        if not self.pg_ident_file:
+            self.logger.info("No pg_ident file has been defined.")
+            return
+
+        try:
+            pg_ident = open(self.pg_ident_file, 'r')
+            pg_ident_entries = pg_ident.readlines()
+            pg_ident.close()
+
+            line_found = False
+
+            for line in pg_ident_entries:
+                if user in line:
+                    self.logger.debug("pg_ident entry found for user {}: {}".format(user, line))
+                    line_found = True
+
+            if not line_found:
+                self.logger.debug("No pg_ident entry found, creating entry for {}".format(user))
+                pg_ident = open(self.pg_ident_file, 'a')
+                pg_ident.write("krb\t{}\t{}\n".format(user, user.lower()))
+                pg_ident.close()
+
+        except IOError as e:
+            self.logger.error("Error updating pg_ident file: {}".format(e))
+
+    def remove_pgident_mapping(self, user):
+        pass
 
     def purge_unauthorized_users(self, role_name, authorized_users):
         """
         Removes users in 'role_name' that are not in 'authorized_users'
         """
+        lowercase_users = map(lambda x: x.lower(), authorized_users)
+
         self.psql_cur.execute(
             """
             SELECT m.rolname as member
@@ -152,34 +184,39 @@ class Synchronizer:
 
         for member in current_members:
             member = member[0]
-            if member not in authorized_users:
+            if member not in lowercase_users:
                 self.logger.info("Removing user '{}' from group '{}'".format(member, role_name))
                 self.psql_cur.execute("REVOKE {} FROM {}".format(role_name, member))
                 self.logger.debug(self.psql_cur.statusmessage)
+
+            ## TODO: Look up each user in LDAP and make sure they still exist and are active
 
     def add_authorized_users(self, role_name, authorized_users):
         """
         Ensure 'authorized_users' are in 'role_name'
         """
         for user in authorized_users:
+            lowercase_user = user.lower()
             # First, check if the user role exists, and create it if it does not
             self.psql_cur.execute(
-                "SELECT 1 FROM pg_roles WHERE rolname='{0}' AND rolcanlogin='t'".format(user)
+                "SELECT 1 FROM pg_roles WHERE rolname='{0}' AND rolcanlogin='t'".format(lowercase_user)
             )
             result = self.psql_cur.fetchone()
             if not result or result[0] == 0:
-                self.logger.info("Created new role '{}'".format(user))
+                self.logger.info("Created new role '{}'".format(lowercase_user))
                 self.psql_cur.execute(
                     """
                     CREATE ROLE \"{}\" LOGIN INHERIT NOSUPERUSER NOCREATEDB \
                         NOCREATEROLE
-                    """.format(user)
+                    """.format(lowercase_user)
                 )
+
+                self.add_pgident_mapping(user)
 
                 if self.global_groups:
                     self.logger.info(
                         "Adding user {0} to global groups: {1}".format(
-                            user, ", ".join(self.global_groups)
+                            lowercase_user, ", ".join(self.global_groups)
                         )
                     )
 
@@ -187,7 +224,7 @@ class Synchronizer:
                         self.psql_cur.execute(
                             """
                             GRANT {0} TO {1}
-                            """.format(group, user)
+                            """.format(group, lowercase_user)
                         )
             #else:
                 # Role exists, ensure that it is a login role
@@ -203,7 +240,7 @@ class Synchronizer:
             #        )
 
             # Then, add the user to the role
-            self.psql_cur.execute("GRANT \"{}\" TO \"{}\"".format(role_name, user))
+            self.psql_cur.execute("GRANT \"{}\" TO \"{}\"".format(role_name, lowercase_user))
 
     def synchronize_group(self, group, prefix, blacklist):
         """
