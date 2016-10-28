@@ -9,7 +9,7 @@ import ldap
 from .exceptions import PSQLAuthnzLDAPException, PSQLAuthnzPSQLException
 
 class Synchronizer:
-    def __init__(self, global_groups=None):
+    def __init__(self, global_groups=None, logger=None):
         """
         Initializes a syncronizer, with placeholders for the LDAP and PSQL
         connections, plus an optional `global_groups` variable for groups
@@ -19,6 +19,7 @@ class Synchronizer:
         self.psql_conn = None
         self.psql_cur = None
         self.global_groups = global_groups
+        self.logger = logger or logging.getLogger(__name__)
 
     def __enter__(self):
         return self
@@ -40,20 +41,20 @@ class Synchronizer:
 
             # If a username and password is provided, we assume
             # SASL's DIGESTMD5 authentication method.
-            logging.debug("Connecting using method: {0}".format(method))
+            self.logger.debug("Connecting using method: {0}".format(method))
             if method == "DIGESTMD5":
                 if username and password:
-                    logging.debug("Username and password provided, attempting DIGEST MD5 connection.")
+                    self.logger.debug("Username and password provided, attempting DIGEST MD5 connection.")
                     auth_tokens = ldap.sasl.digest_md5(username, password)
                     self.ldap_conn.sasl_interactive_bind_s("", auth_tokens)
                 else:
                     raise PSQLAuthnzLDAPException("A username and password must supplied for DIGESTMD5 authentication.")
             else:
                 if username and password:
-                    logging.debug("Username and password provided, attempting simple bind connection.")
+                    self.logger.debug("Username and password provided, attempting simple bind connection.")
                     self.ldap_conn.simple_bind_s(username, password)
                 else:
-                    logging.debug("No username and password provided, attempting anonymous connection.")
+                    self.logger.debug("No username and password provided, attempting anonymous connection.")
                     self.ldap_conn.simple_bind_s()
         except Exception as e:
             logging.error(unicode(e.message).encode('utf-8'))
@@ -75,7 +76,7 @@ class Synchronizer:
             self.psql_conn.autocommit = True
             self.psql_cur = self.psql_conn.cursor()
         except psycopg2.Error as e:
-            logging.error(e)
+            self.logger.error(e)
             raise PSQLAuthnzPSQLException()
 
     def get_groups(self, group_ou, group_class, domain):
@@ -84,18 +85,18 @@ class Synchronizer:
         """
         try:
             groups_search_base = group_ou + ',' + domain
-            logging.debug("Group search base: {0}".format(groups_search_base))
+            self.logger.debug("Group search base: {0}".format(groups_search_base))
             groups = self.ldap_conn.search_s(groups_search_base, ldap.SCOPE_SUBTREE, "(objectClass={0})".format(group_class))
         except ldap.LDAPError, e:
-            logging.error(e)
+            self.logger.error(e)
             raise PSQLAuthnzLDAPException("Failed to get groups from the specified OU.")
 
         groups_formatted = pprint.pformat(groups)
-        logging.debug("Data access groups:")
+        self.logger.debug("Data access groups:")
         for line in groups_formatted.split('\n'):
-            logging.debug(line)
+            self.logger.debug(line)
 
-        logging.info("Retrieved {} group(s) to synchronize.".format(len(groups)))
+        self.logger.info("Retrieved {} group(s) to synchronize.".format(len(groups)))
 
         return groups
 
@@ -107,21 +108,21 @@ class Synchronizer:
 
             if user_match:
                 username = user_match.groups('username')[0]
-                logging.debug("Extracted username '{}' from '{}'".format(username, member))
+                self.logger.debug("Extracted username '{}' from '{}'".format(username, member))
             else:
                 try:
                     # UID not contained in DN, attempt to retrieve it via LDAP.
                     member_attrs = self.ldap_conn.search_s(member, ldap.SCOPE_BASE, "(objectClass=*)")
                 except ldap.LDAPError, e:
-                    logging.error(e)
+                    self.logger.error(e)
                     raise PSQLAuthnzLDAPException("Failed to retrieve user attributes from supplied DN.")
 
-                logging.debug(member_attrs)
+                self.logger.debug(member_attrs)
 
                 if member_attrs:
                     username = member_attrs[0][1]["userPrincipalName"][0]
                 else:
-                    logging.warning("Could not extract or lookup username from {}, skipping...".format(member))
+                    self.logger.warning("Could not extract or lookup username from {}, skipping...".format(member))
                     continue
 
             # Remove anything after an @
@@ -129,7 +130,7 @@ class Synchronizer:
 
             users.append(username.lower())
 
-        logging.debug("User list from LDAP: {}".format(users))
+        self.logger.debug("User list from LDAP: {}".format(users))
         return users
 
     def purge_unauthorized_users(self, role_name, authorized_users):
@@ -147,14 +148,14 @@ class Synchronizer:
         )
 
         current_members = self.psql_cur.fetchall()
-        logging.debug("Current group members: {}".format(current_members))
+        self.logger.debug("Current group members: {}".format(current_members))
 
         for member in current_members:
             member = member[0]
             if member not in authorized_users:
-                logging.info("Removing user '{}' from group '{}'".format(member, role_name))
+                self.logger.info("Removing user '{}' from group '{}'".format(member, role_name))
                 self.psql_cur.execute("REVOKE {} FROM {}".format(role_name, member))
-                logging.debug(self.psql_cur.statusmessage)
+                self.logger.debug(self.psql_cur.statusmessage)
 
     def add_authorized_users(self, role_name, authorized_users):
         """
@@ -167,7 +168,7 @@ class Synchronizer:
             )
             result = self.psql_cur.fetchone()
             if not result or result[0] == 0:
-                logging.info("Created new role '{}'".format(user))
+                self.logger.info("Created new role '{}'".format(user))
                 self.psql_cur.execute(
                     """
                     CREATE ROLE \"{}\" LOGIN INHERIT NOSUPERUSER NOCREATEDB \
@@ -176,7 +177,7 @@ class Synchronizer:
                 )
 
                 if self.global_groups:
-                    logging.info(
+                    self.logger.info(
                         "Adding user {0} to global groups: {1}".format(
                             user, ", ".join(self.global_groups)
                         )
@@ -210,7 +211,7 @@ class Synchronizer:
         """
         group_name = group[1]['cn'][0]
         group_members = group[1]['member']
-        logging.debug("Group '{0}' has members: {1}".format(group_name, group_members))
+        self.logger.debug("Group '{0}' has members: {1}".format(group_name, group_members))
 
         role_match = None
         role_match = re.search('^{}(?P<role_name>[a-z0-9_]+)'.format(prefix), group_name)
@@ -218,7 +219,7 @@ class Synchronizer:
         if role_match:
             role_name = role_match.groups('role_name')[0]
         else:
-            logging.warning("Group '{0}' did not match the required pattern, skipping...".format(group_name))
+            self.logger.warning("Group '{0}' did not match the required pattern, skipping...".format(group_name))
             return False
 
         if role_name in blacklist:
@@ -228,7 +229,7 @@ class Synchronizer:
         self.psql_cur.execute("SELECT 1 FROM pg_roles WHERE rolname='{0}'".format(role_name))
         result = self.psql_cur.fetchone()
         if not result or result[0] == 0:
-            logging.warning("Group {0} does not have a corresponding role in Postgres, skipping...".format(group_name))
+            self.logger.warning("Group {0} does not have a corresponding role in Postgres, skipping...".format(group_name))
             return False
 
         # Second, extract each member from the list.
@@ -248,4 +249,4 @@ class Synchronizer:
             if self.synchronize_group(group, prefix, blacklist):
                 group_count += 1
 
-        logging.info("Successfully synchronized {} group(s) from {},{}".format(group_count, group_ou, domain))
+        self.logger.info("Successfully synchronized {} group(s) from {},{}".format(group_count, group_ou, domain))
