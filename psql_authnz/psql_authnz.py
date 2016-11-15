@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import os, sys
 import logging
+import logstash
 
 from .synchronizer import Synchronizer
 from .exceptions import PSQLAuthnzException
@@ -21,6 +22,8 @@ def main():
     group_class     = os.getenv("PSQL_AUTHNZ_GROUP_CLASS", "groupOfNames")
     global_groups   = os.getenv("PSQL_AUTHNZ_GLOBAL_GROUPS", None)
     blacklist       = os.getenv("PSQL_AUTHNZ_BLACKLIST", "").split(",")
+    logstash_host   = os.getenv("PSQL_AUTHNZ_LOGSTASH_HOST", None)
+    logstash_port   = os.getenv("PSQL_AUTHNZ_LOGSTASH_PORT", None)
     pg_host         = os.getenv("PGHOST", None)
     pg_user         = os.getenv("PGUSER", None)
     pg_password     = os.getenv("PGPASSWORD", None)
@@ -30,14 +33,29 @@ def main():
         global_groups = global_groups.split(",")
 
     # Setup logging
-    LOG_FORMAT = "%(asctime)-15s PSQL-AUTHNZ [%(levelname)-5s]: %(filename)-15s:%(lineno)-3s - %(message)s"
-    logging.basicConfig(filename=log_file,format=LOG_FORMAT,level=getattr(logging, log_level.upper()))
+    logger = logging.getLogger(__name__)
+    logger.setLevel(getattr(logging, log_level.upper()))
 
-    with Synchronizer(global_groups=global_groups) as synchronizer:
+    LOG_FORMAT = "%(asctime)-15s PSQL-AUTHNZ [%(levelname)-5s]: %(filename)-15s:%(lineno)-3s - %(message)s"
+
+    if log_file:
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
+        logger.addHandler(file_handler)
+    else:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(logging.Formatter(LOG_FORMAT))
+        logger.addHandler(console_handler)
+
+    if logstash_host and logstash_port:
+        logstash_handler = logstash.TCPLogstashHandler(logstash_host, int(logstash_port), tags=["psql-authnz",], version=1)
+        logger.addHandler(logstash_handler)
+
+    with Synchronizer(global_groups=global_groups, logger=logger) as synchronizer:
         try:
-            logging.debug("Attempting to connect to LDAP...")
+            logger.debug("Attempting to connect to LDAP...")
             synchronizer.connect_to_ldap(ldap_protocol, ldap_host, ldap_port, username, password, method)
-            logging.debug("Attempting to connect to PSQL...")
+            logger.debug("Attempting to connect to PSQL...")
             synchronizer.connect_to_psql(pg_user, pg_host, pg_password)
 
             # pg_host should be None when intiating PSQL connection,
@@ -45,7 +63,7 @@ def main():
             if not pg_host:
                 pg_host = "localhost"
 
-            logging.info("Synchronizing server {} to {},{}.".format(pg_host, group_ou, domain))
+            logger.info("Synchronizing server {} to {},{}.".format(pg_host, group_ou, domain))
             synchronizer.synchronize(group_ou, group_class, domain, group_prefix, blacklist)
         except PSQLAuthnzException:
             exit_code = 1
