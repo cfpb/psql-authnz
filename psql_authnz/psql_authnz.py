@@ -54,7 +54,7 @@ def main():
         logger.addHandler(logstash_handler)
 
     while exit_code == 0:
-        with Synchronizer(global_groups=global_groups, logger=logger) as synchronizer:
+        with Synchronizer(global_groups=global_groups, logger=logger, pg_ident_file=pg_ident_file) as synchronizer:
             try:
                 logging.debug("Attempting to connect to LDAP...")
                 synchronizer.connect_to_ldap(ldap_protocol, ldap_host, ldap_port, username, password, method)
