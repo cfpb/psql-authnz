@@ -8,6 +8,7 @@ from .exceptions import PSQLAuthnzException
 
 def main():
     # Retrieve settings from environment variables
+    psql_period     = os.getenv("PSQL_AUTHNZ_PERIOD", 300)
     log_level       = os.getenv("PSQL_AUTHNZ_LOG_LEVEL", "info")
     log_file        = os.getenv("PSQL_AUTHNZ_LOG_FILE", None)
     group_prefix    = os.getenv("PSQL_AUTHNZ_PREFIX", "")
@@ -24,6 +25,7 @@ def main():
     blacklist       = os.getenv("PSQL_AUTHNZ_BLACKLIST", "").split(",")
     logstash_host   = os.getenv("PSQL_AUTHNZ_LOGSTASH_HOST", None)
     logstash_port   = os.getenv("PSQL_AUTHNZ_LOGSTASH_PORT", None)
+    pg_ident_file   = os.getenv("PSQL_AUTHNZ_PG_IDENT_FILE", None)
     pg_host         = os.getenv("PGHOST", None)
     pg_user         = os.getenv("PGUSER", None)
     pg_password     = os.getenv("PGPASSWORD", None)
@@ -51,21 +53,23 @@ def main():
         logstash_handler = logstash.TCPLogstashHandler(logstash_host, int(logstash_port), tags=["psql-authnz",], version=1)
         logger.addHandler(logstash_handler)
 
-    with Synchronizer(global_groups=global_groups, logger=logger) as synchronizer:
-        try:
-            logger.debug("Attempting to connect to LDAP...")
-            synchronizer.connect_to_ldap(ldap_protocol, ldap_host, ldap_port, username, password, method)
-            logger.debug("Attempting to connect to PSQL...")
-            synchronizer.connect_to_psql(pg_user, pg_host, pg_password)
+    while exit_code == 0:
+        with Synchronizer(global_groups=global_groups, logger=logger, pg_ident_file=pg_ident_file) as synchronizer:
+            try:
+                logging.debug("Attempting to connect to LDAP...")
+                synchronizer.connect_to_ldap(ldap_protocol, ldap_host, ldap_port, username, password, method)
+                logging.debug("Attempting to connect to PSQL...")
+                synchronizer.connect_to_psql(pg_user, pg_host, pg_password)
 
-            # pg_host should be None when intiating PSQL connection,
-            # setting it to 'localhost' here for display.
-            if not pg_host:
-                pg_host = "localhost"
+                # pg_host should be None when intiating PSQL connection,
+                # setting it to 'localhost' here for display.
+                if not pg_host:
+                    pg_host = "localhost"
 
-            logger.info("Synchronizing server {} to {},{}.".format(pg_host, group_ou, domain))
-            synchronizer.synchronize(group_ou, group_class, domain, group_prefix, blacklist)
-        except PSQLAuthnzException:
-            exit_code = 1
+                logging.info("Synchronizing server {} to {},{}.".format(pg_host, group_ou, domain))
+                synchronizer.synchronize(group_ou, group_class, domain, group_prefix, blacklist)
+            except PSQLAuthnzException:
+                exit_code = 1
+        time.sleep(psql_period)
 
     return exit_code
