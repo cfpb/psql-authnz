@@ -2,6 +2,7 @@
 import os, sys
 import logging
 import logstash
+import time
 
 from .synchronizer import Synchronizer
 from .exceptions import PSQLAuthnzException
