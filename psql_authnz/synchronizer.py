@@ -1,4 +1,3 @@
-import sys
 import pprint
 import logging
 import re
@@ -7,6 +6,7 @@ import psycopg2
 import ldap
 
 from .exceptions import PSQLAuthnzLDAPException, PSQLAuthnzPSQLException
+
 
 class Synchronizer:
     def __init__(self, global_groups=None, logger=None, pg_ident_file=None):
@@ -31,12 +31,18 @@ class Synchronizer:
                 self.psql_cur.close()
             self.psql_conn.close()
 
-    def connect_to_ldap(self, ldap_protocol, ldap_host, ldap_port, username, password, method='BASIC'):
+    def connect_to_ldap(self, ldap_protocol, ldap_host, ldap_port,
+                        username, password, method='BASIC'):
         """
         Attempt to connect to Active Directory (LDAP)
         """
+        self.logger.debug("Attempting to connect to LDAP...")
+
         try:
-            ldap_connection_string = "{}://{}:{}".format(ldap_protocol, ldap_host, ldap_port)
+            ldap_connection_string = "{}://{}:{}".format(ldap_protocol,
+                                                         ldap_host,
+                                                         ldap_port)
+
             self.ldap_conn = ldap.initialize(ldap_connection_string)
             self.ldap_conn.set_option(ldap.OPT_REFERRALS, 0)
 
@@ -45,18 +51,29 @@ class Synchronizer:
             self.logger.debug("Connecting using method: {0}".format(method))
             if method == "DIGESTMD5":
                 if username and password:
-                    self.logger.debug("Username and password provided, attempting DIGEST MD5 connection.")
+                    self.logger.debug(("Username and password provided," +
+                                       " attempting DIGEST MD5 connection."))
                     auth_tokens = ldap.sasl.digest_md5(username, password)
                     self.ldap_conn.sasl_interactive_bind_s("", auth_tokens)
                 else:
-                    raise PSQLAuthnzLDAPException("A username and password must supplied for DIGESTMD5 authentication.")
+                    raise PSQLAuthnzLDAPException(
+                        ("A username and password must supplied " +
+                         "for DIGESTMD5 authentication.")
+                    )
             else:
                 if username and password:
-                    self.logger.debug("Username and password provided, attempting simple bind connection.")
+                    self.logger.debug(
+                        ("Username and password provided, " +
+                        "attempting simple bind connection.")
+                    )
                     self.ldap_conn.simple_bind_s(username, password)
                 else:
-                    self.logger.debug("No username and password provided, attempting anonymous connection.")
+                    self.logger.debug(
+                        ("No username and password provided, " +
+                         "attempting anonymous connection.")
+                    )
                     self.ldap_conn.simple_bind_s()
+
         except Exception as e:
             logging.error(unicode(e.message).encode('utf-8'))
             raise PSQLAuthnzLDAPException()
@@ -64,6 +81,8 @@ class Synchronizer:
     def connect_to_psql(self, pg_user, pg_host, pg_password):
         # Connect to Postgres using provided credentials
         conn_string = "dbname=postgres"
+
+        self.logger.debug("Attempting to connect to PSQL...")
 
         if pg_user:
             conn_string += " user={}".format(pg_user)
@@ -86,11 +105,20 @@ class Synchronizer:
         """
         try:
             groups_search_base = group_ou + ',' + domain
-            self.logger.debug("Group search base: {0}".format(groups_search_base))
-            groups = self.ldap_conn.search_s(groups_search_base, ldap.SCOPE_SUBTREE, "(objectClass={0})".format(group_class))
+            self.logger.debug(
+                "Group search base: {0}".format(groups_search_base)
+            )
+            groups = self.ldap_conn.search_s(
+                groups_search_base,
+                ldap.SCOPE_SUBTREE,
+                "(objectClass={0})".format(group_class)
+            )
+
         except ldap.LDAPError, e:
             self.logger.error(e)
-            raise PSQLAuthnzLDAPException("Failed to get groups from the specified OU.")
+            raise PSQLAuthnzLDAPException(
+                "Failed to get groups from the specified OU."
+            )
 
         groups_formatted = pprint.pformat(groups)
         self.logger.debug("Data access groups:")
