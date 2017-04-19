@@ -299,8 +299,8 @@ class Synchronizer:
                 self.logger.error(unicode(e.message).encode('utf-8'))
                 raise e
 
-            self.logger.info("Creating new role '{}'".format(lowercase_user))
             if not result or result[0] == 0:
+                self.logger.info("Creating new role '{}'".format(lowercase_user))
                 try:
                     self.psql_cur.execute(
                         """
