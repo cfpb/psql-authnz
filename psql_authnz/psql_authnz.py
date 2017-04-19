@@ -89,6 +89,9 @@ def main():
                 time.sleep(5)
                 exit_code = 1
 
-        time.sleep(psql_period)
+        try:
+            time.sleep(int(psql_period))
+        except ValueError, TypeError as e:
+            logging.error("PSQL_AUTHNZ_PERIOD is not an integer, exiting!")
 
     return exit_code
