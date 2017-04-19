@@ -452,7 +452,7 @@ class Synchronizer:
         return True
 
     def synchronize(self, group_ou, group_class, domain, prefix, blacklist):
-        logging.info(
+        self.logger.info(
             "*** Synchronizing Postgres AuthNZ to {0},{1}. ***".format(
                 group_ou, domain
             )
