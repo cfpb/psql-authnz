@@ -109,6 +109,7 @@ class Synchronizer:
         """
         Retrieve all groups within the specified OU.
         """
+        self.logger.debug("Retriving LDAP groups...")
         try:
             groups_search_base = group_ou + ',' + domain
             self.logger.debug(
@@ -450,8 +451,8 @@ class Synchronizer:
 
     def synchronize(self, group_ou, group_class, domain, prefix, blacklist):
         logging.info(
-            "*** Synchronizing Postgres AuthNZ to {},{}. ***".format(
-                pg_host, group_ou, domain
+            "*** Synchronizing Postgres AuthNZ to {0},{1}. ***".format(
+                group_ou, domain
             )
         )
 
