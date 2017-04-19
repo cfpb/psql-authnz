@@ -351,14 +351,47 @@ class Synchronizer:
                             )
                             raise e
 
-            # Then, add the user to the role
+            # Then, add the user to the role if not already present.
             try:
                 self.psql_cur.execute(
-                    "GRANT \"{}\" TO \"{}\"".format(role_name, lowercase_user)
+                    """
+                    SELECT 1 FROM pg_authid g
+                        INNER JOIN pg_auth_members ON
+                            (g.oid=pg_auth_members.roleid)
+                        INNER JOIN pg_authid u ON
+                            (pg_auth_members.member=u.oid)
+                        WHERE g.rolname = '{0}' AND u.rolname = '{1}'
+                    """.format(role_name, lowercase_user)
                 )
+                result = self.psql_cur.fetchone()
             except psycopg2.Error as e:
-                self.logger.error(unicode(e.message).encode('utf-8'))
+                self.logger.error(
+                    unicode(e.message).encode('utf-8')
+                )
                 raise PSQLAuthnzPSQLException()
+            except Exception as e:
+                self.logger.error(
+                    unicode(e.message).encode('utf-8')
+                )
+                raise e
+
+            # If the role has not already been granted...
+            if not result or result[0] == 0:
+                self.logger.info("Adding user {0} to role {1}".format(
+                    lowercase_user, role_name
+                ))
+                try:
+                    self.psql_cur.execute(
+                        "GRANT \"{}\" TO \"{}\"".format(
+                            role_name, lowercase_user
+                        )
+                    )
+                except psycopg2.Error as e:
+                    self.logger.error(unicode(e.message).encode('utf-8'))
+                    raise PSQLAuthnzPSQLException()
+                except Exception as e:
+                    self.logger.error(unicode(e.message).encode('utf-8'))
+                    raise e
 
     def synchronize_group(self, group, prefix, blacklist):
         """
