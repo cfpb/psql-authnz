@@ -131,9 +131,8 @@ class Synchronizer:
             raise e
 
         self.logger.info(
-            "Retrieved {0} group(s) to synchronize: {1}".format(
-                len(groups),
-                groups
+            "Retrieved {0} group(s) to synchronize...".format(
+                len(groups)
             )
         )
 
@@ -367,6 +366,9 @@ class Synchronizer:
         """
         group_name = group[1]['cn'][0]
         group_members = group[1]['member']
+        self.logger.debug(
+            "Synchronizing group {0}...".format(group_name)
+        )
         self.logger.debug(
             "Group '{0}' has members: {1}".format(
                 group_name, group_members
