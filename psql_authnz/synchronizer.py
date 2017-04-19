@@ -39,16 +39,18 @@ class Synchronizer:
         self.logger.debug("Attempting to connect to LDAP...")
 
         try:
-            ldap_connection_string = "{}://{}:{}".format(ldap_protocol,
-                                                         ldap_host,
-                                                         ldap_port)
+            conn_string = "{}://{}:{}".format(ldap_protocol,
+                                              ldap_host,
+                                              ldap_port)
 
-            self.ldap_conn = ldap.initialize(ldap_connection_string)
+            self.logger.debug("Connection string: {0}".format(conn_string))
+
+            self.ldap_conn = ldap.initialize(conn_string)
             self.ldap_conn.set_option(ldap.OPT_REFERRALS, 0)
 
             # If a username and password is provided, we assume
             # SASL's DIGESTMD5 authentication method.
-            self.logger.debug("Connecting using method: {0}".format(method))
+            self.logger.debug("Auth using method: {0}".format(method))
             if method == "DIGESTMD5":
                 if username and password:
                     self.logger.debug(("Username and password provided," +
@@ -91,6 +93,7 @@ class Synchronizer:
         if pg_password:
             conn_string += " password={}".format(pg_password)
 
+        self.logger.debug("Connection string: {0}".format(conn_string))
         try:
             self.psql_conn = psycopg2.connect(conn_string)
             self.psql_conn.autocommit = True
@@ -227,6 +230,7 @@ class Synchronizer:
         Removes users in 'role_name' that are not in 'authorized_users'
         """
         lowercase_users = map(lambda x: x.lower(), authorized_users)
+        self.logger.debug("Current group users: {0}".format(authorized_users))
 
         try:
             self.psql_cur.execute(
@@ -295,6 +299,7 @@ class Synchronizer:
                 self.logger.error(unicode(e.message).encode('utf-8'))
                 raise e
 
+            self.logger.info("Creating new role '{}'".format(lowercase_user))
             if not result or result[0] == 0:
                 try:
                     self.psql_cur.execute(
@@ -306,8 +311,6 @@ class Synchronizer:
                 except psycopg2.Error as e:
                     self.logger.error(unicode(e.message).encode('utf-8'))
                     raise PSQLAuthnzPSQLException()
-
-                self.logger.info("Created new role '{}'".format(lowercase_user))
 
                 self.add_pgident_mapping(user)
 
