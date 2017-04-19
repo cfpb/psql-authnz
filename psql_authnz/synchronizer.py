@@ -96,8 +96,11 @@ class Synchronizer:
             self.psql_conn.autocommit = True
             self.psql_cur = self.psql_conn.cursor()
         except psycopg2.Error as e:
-            self.logger.error(e)
+            self.logger.error(unicode(e.message).encode('utf-8'))
             raise PSQLAuthnzPSQLException()
+        except Exception as e:
+            self.logger.error(unicode(e.message).encode('utf-8'))
+            raise e
 
     def get_groups(self, group_ou, group_class, domain):
         """
@@ -115,17 +118,17 @@ class Synchronizer:
             )
 
         except ldap.LDAPError, e:
-            self.logger.error(e)
+            self.logger.error(unicode(e.message).encode('utf-8'))
             raise PSQLAuthnzLDAPException(
                 "Failed to get groups from the specified OU."
             )
+        except Exception as e:
+            self.logger.error(unicode(e.message).encode('utf-8'))
+            raise e
 
-        groups_formatted = pprint.pformat(groups)
-        self.logger.debug("Data access groups:")
-        for line in groups_formatted.split('\n'):
-            self.logger.debug(line)
-
-        self.logger.info("Retrieved {} group(s) to synchronize.".format(len(groups)))
+        self.logger.info(
+            "Retrieved {} group(s) to synchronize.".format(len(groups))
+        )
 
         return groups
 
@@ -133,30 +136,42 @@ class Synchronizer:
         users = []
         for member in group_members:
             # Get the actual username
-            user_match = re.search("uid=(?P<username>[a-zA-Z0-9\_\-\.\/\@]+),.*", member)
+            user_match = re.search(
+                "uid=(?P<username>[a-zA-Z0-9\_\-\.\/\@]+),.*", member
+            )
 
             if user_match:
                 username = user_match.groups('username')[0]
-                self.logger.debug("Extracted username '{}' from '{}'".format(username, member))
+                self.logger.debug(
+                    "Extracted username '{}' from '{}'".format(username, member)
+                )
             else:
                 try:
                     # UID not contained in DN, attempt to retrieve it via LDAP.
-                    member_attrs = self.ldap_conn.search_s(member, ldap.SCOPE_BASE, "(objectClass=*)")
+                    member_attrs = self.ldap_conn.search_s(
+                        member, ldap.SCOPE_BASE, "(objectClass=*)"
+                    )
                 except ldap.LDAPError, e:
-                    self.logger.error(e)
-                    raise PSQLAuthnzLDAPException("Failed to retrieve user attributes from supplied DN.")
-
-                self.logger.debug(member_attrs)
+                    self.logger.error(unicode(e.message).encode('utf-8'))
+                    raise PSQLAuthnzLDAPException(
+                        "Failed to retrieve user attributes from supplied DN."
+                    )
+                except Exception as e:
+                    self.logger.error(unicode(e.message).encode('utf-8'))
+                    raise e
 
                 if member_attrs:
                     username = member_attrs[0][1]["userPrincipalName"][0]
                 else:
-                    self.logger.warning("Could not extract or lookup username from {}, skipping...".format(member))
+                    self.logger.warning(
+                        "Couldn't extract username from {}, skipping...".format(
+                            member
+                        )
+                    )
                     continue
 
             # Remove anything after an @
             username = username.split("@")[0]
-
             users.append(username)
 
         self.logger.debug("User list from LDAP: {}".format(users))
@@ -176,19 +191,35 @@ class Synchronizer:
 
             for line in pg_ident_entries:
                 if user in line:
-                    self.logger.debug("pg_ident entry found for user {}: {}".format(user, line))
+                    self.logger.debug(
+                        "pg_ident entry found for user {}: {}".format(
+                            user, line
+                        )
+                    )
                     line_found = True
 
             if not line_found:
-                self.logger.debug("No pg_ident entry found, creating entry for {}".format(user))
+                self.logger.debug(
+                    "No pg_ident entry found, creating entry for {}".format(
+                        user
+                    )
+                )
                 pg_ident = open(self.pg_ident_file, 'a')
                 pg_ident.write("krb\t{}\t{}\n".format(user, user.lower()))
                 pg_ident.close()
 
         except IOError as e:
-            self.logger.error("Error updating pg_ident file: {}".format(e))
+            self.logger.error(
+                "Error updating pg_ident file: {}".format(
+                    unicode(e.message).encode('utf-8')
+                )
+            )
 
     def remove_pgident_mapping(self, user):
+        """
+        Placeholder for function to remove a user from the pgident
+        mapping file.
+        """
         pass
 
     def purge_unauthorized_users(self, role_name, authorized_users):
@@ -197,15 +228,22 @@ class Synchronizer:
         """
         lowercase_users = map(lambda x: x.lower(), authorized_users)
 
-        self.psql_cur.execute(
-            """
-            SELECT m.rolname as member
-                FROM pg_authid p
-                INNER JOIN pg_auth_members ON (p.oid=pg_auth_members.roleid)
-                INNER JOIN pg_authid m ON (pg_auth_members.member = m.oid)
-            WHERE p.rolname = '{}'
-            """.format(role_name)
-        )
+        try:
+            self.psql_cur.execute(
+                """
+                SELECT m.rolname as member
+                    FROM pg_authid p
+                    INNER JOIN pg_auth_members ON (p.oid=pg_auth_members.roleid)
+                    INNER JOIN pg_authid m ON (pg_auth_members.member = m.oid)
+                    WHERE p.rolname = '{}'
+                """.format(role_name)
+            )
+        except psycopg2.Error as e:
+            self.logger.error(unicode(e.message).encode('utf-8'))
+            raise PSQLAuthnzPSQLException()
+        except Exception as e:
+            self.logger.error(unicode(e.message).encode('utf-8'))
+            raise e
 
         current_members = self.psql_cur.fetchall()
         self.logger.debug("Current group members: {}".format(current_members))
@@ -213,11 +251,27 @@ class Synchronizer:
         for member in current_members:
             member = member[0]
             if member not in lowercase_users:
-                self.logger.info("Removing user '{}' from group '{}'".format(member, role_name))
-                self.psql_cur.execute("REVOKE {} FROM {}".format(role_name, member))
+                self.logger.info(
+                    "Removing user '{}' from group '{}'".format(
+                        member, role_name
+                    )
+                )
+
+                try:
+                    self.psql_cur.execute(
+                        "REVOKE {} FROM {}".format(role_name, member)
+                    )
+                except psycopg2.Error as e:
+                    self.logger.error(unicode(e.message).encode('utf-8'))
+                    raise PSQLAuthnzPSQLException()
+                except Exception as e:
+                    self.logger.error(unicode(e.message).encode('utf-8'))
+                    raise e
+
                 self.logger.debug(self.psql_cur.statusmessage)
 
-            ## TODO: Look up each user in LDAP and make sure they still exist and are active
+            # TODO: Look up each user in LDAP and make sure they
+            # still exist and are active
 
     def add_authorized_users(self, role_name, authorized_users):
         """
@@ -226,49 +280,70 @@ class Synchronizer:
         for user in authorized_users:
             lowercase_user = user.lower()
             # First, check if the user role exists, and create it if it does not
-            self.psql_cur.execute(
-                "SELECT 1 FROM pg_roles WHERE rolname='{0}' AND rolcanlogin='t'".format(lowercase_user)
-            )
-            result = self.psql_cur.fetchone()
-            if not result or result[0] == 0:
-                self.logger.info("Created new role '{}'".format(lowercase_user))
+            try:
                 self.psql_cur.execute(
                     """
-                    CREATE ROLE \"{}\" LOGIN INHERIT NOSUPERUSER NOCREATEDB \
-                        NOCREATEROLE
+                    SELECT 1 FROM pg_roles
+                        WHERE rolname='{0}' AND rolcanlogin='t'
                     """.format(lowercase_user)
                 )
+                result = self.psql_cur.fetchone()
+            except psycopg2.Error as e:
+                self.logger.error(unicode(e.message).encode('utf-8'))
+                raise PSQLAuthnzPSQLException()
+            except Exception as e:
+                self.logger.error(unicode(e.message).encode('utf-8'))
+                raise e
+
+            if not result or result[0] == 0:
+                try:
+                    self.psql_cur.execute(
+                        """
+                        CREATE ROLE \"{}\" LOGIN INHERIT NOSUPERUSER \
+                            NOCREATEDB NOCREATEROLE
+                        """.format(lowercase_user)
+                    )
+                except psycopg2.Error as e:
+                    self.logger.error(unicode(e.message).encode('utf-8'))
+                    raise PSQLAuthnzPSQLException()
+
+                self.logger.info("Created new role '{}'".format(lowercase_user))
 
                 self.add_pgident_mapping(user)
 
                 if self.global_groups:
                     self.logger.info(
-                        "Adding user {0} to global groups: {1}".format(
+                        "Adding new user {0} to global groups: {1}".format(
                             lowercase_user, ", ".join(self.global_groups)
                         )
                     )
 
                     for group in self.global_groups:
-                        self.psql_cur.execute(
-                            """
-                            GRANT {0} TO {1}
-                            """.format(group, lowercase_user)
-                        )
-            #else:
-                # Role exists, ensure that it is a login role
-            #    self.psql_cur.execute(
-            #        "SELECT rolcanlogin FROM pg_roles WHERE rolname='{}'".format(user)
-            #    )
-
-            #    can_login = self.psql_cur.fetchone()
-
-            #    if can_login and can_login[0] == 'f':
-            #        self.psql_cur.execute(
-            #            "UPDATE pg_roles SET rolcanlogin='t' WHERE rolname='{}'".format(user)
-            #        )
+                        try:
+                            self.psql_cur.execute(
+                                """
+                                GRANT {0} TO {1}
+                                """.format(group, lowercase_user)
+                            )
+                        except psycopg2.Error as e:
+                            self.logger.error(
+                                unicode(e.message).encode('utf-8')
+                            )
+                            raise PSQLAuthnzPSQLException()
+                        except Exception as e:
+                            self.logger.error(
+                                unicode(e.message).encode('utf-8')
+                            )
+                            raise e
 
             # Then, add the user to the role
-            self.psql_cur.execute("GRANT \"{}\" TO \"{}\"".format(role_name, lowercase_user))
+            try:
+                self.psql_cur.execute(
+                    "GRANT \"{}\" TO \"{}\"".format(role_name, lowercase_user)
+                )
+            except psycopg2.Error as e:
+                self.logger.error(unicode(e.message).encode('utf-8'))
+                raise PSQLAuthnzPSQLException()
 
     def synchronize_group(self, group, prefix, blacklist):
         """
@@ -276,35 +351,85 @@ class Synchronizer:
         """
         group_name = group[1]['cn'][0]
         group_members = group[1]['member']
-        self.logger.debug("Group '{0}' has members: {1}".format(group_name, group_members))
+        self.logger.debug(
+            "Group '{0}' has members: {1}".format(
+                group_name, group_members
+            )
+        )
 
         role_match = None
-        role_match = re.search('^{}(?P<role_name>[a-z0-9_]+)'.format(prefix), group_name)
+        role_match = re.search(
+            '^{}(?P<role_name>[a-z0-9_]+)'.format(prefix), group_name
+        )
 
         if role_match:
             role_name = role_match.groups('role_name')[0]
         else:
-            self.logger.warning("Group '{0}' did not match the required pattern, skipping...".format(group_name))
+            self.logger.debug(
+                "Group '{0}' did not match the pattern, skipping...".format(
+                    group_name
+                )
+            )
             return False
 
         if role_name in blacklist:
+            self.logger.debug(
+                "Skipping group '{0}' which is on the blacklist.".format(
+                    group_name
+                )
+            )
             return False
 
         # First, ensure that the role exists
-        self.psql_cur.execute("SELECT 1 FROM pg_roles WHERE rolname='{0}'".format(role_name))
-        result = self.psql_cur.fetchone()
+        try:
+            self.psql_cur.execute(
+                "SELECT 1 FROM pg_roles WHERE rolname='{0}'".format(role_name)
+            )
+            result = self.psql_cur.fetchone()
+        except psycopg2.Error as e:
+            self.logger.error(unicode(e.message).encode('utf-8'))
+            raise PSQLAuthnzPSQLException()
+
         if not result or result[0] == 0:
-            self.logger.warning("Group {0} does not have a corresponding role in Postgres, skipping...".format(group_name))
+            self.logger.warning(
+                "Group {0} does not have a PG role, skipping...".format(
+                    group_name
+                )
+            )
             return False
 
         # Second, extract each member from the list.
-        authorized_users = self.extract_users(group_members)
+        try:
+            authorized_users = self.extract_users(group_members)
+        except:
+            self.logger.error(
+                "Failed to extract users from LDAP for {0}".format(
+                    group_name
+                )
+            )
+            return False
 
         # Third, add authorized users to the role
-        self.add_authorized_users(role_name, authorized_users)
+        try:
+            self.add_authorized_users(role_name, authorized_users)
+        except:
+            self.logger.error(
+                "Failed to add users to the PG role for group {}.".format(
+                    group_name
+                )
+            )
+            return False
 
         # Lastly, remove all users that are not on the list
-        self.purge_unauthorized_users(role_name, authorized_users)
+        try:
+            self.purge_unauthorized_users(role_name, authorized_users)
+        except:
+            self.logger.error(
+                "Failed to remove unauthorized users from group {}.".format(
+                    group_name
+                )
+            )
+            return False
 
         return True
 
@@ -313,5 +438,13 @@ class Synchronizer:
         for group in self.get_groups(group_ou, group_class, domain):
             if self.synchronize_group(group, prefix, blacklist):
                 group_count += 1
+            else:
+                self.logger.error(
+                    "Failed to syncronize group: {0}".format(group)
+                )
 
-        self.logger.info("Successfully synchronized {} group(s) from {},{}".format(group_count, group_ou, domain))
+        self.logger.info(
+            "Successfully synchronized {} group(s) from {},{}".format(
+                group_count, group_ou, domain
+            )
+        )

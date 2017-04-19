@@ -92,7 +92,13 @@ def main():
                     group_prefix, blacklist
                 )
 
-            except PSQLAuthnzException:
+            except PSQLAuthnzException as e:
+                logging.error("Fatal synchronization error: {0}".format(e))
+                time.sleep(5)
+                exit_code = 1
+            except Exception as e:
+                logging.error("Unexpected error encountered: {0}".format(e))
+                time.sleep(5)
                 exit_code = 1
 
         time.sleep(psql_period)
