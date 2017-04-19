@@ -75,18 +75,6 @@ def main():
                 synchronizer.connect_to_psql(
                     pg_user, pg_host, pg_password
                 )
-
-                # pg_host should be None when intiating a local PSQL connection,
-                # setting it to 'localhost' here for display.
-                if not pg_host:
-                    pg_host = "localhost"
-
-                logging.info(
-                    "Synchronizing server {} to {},{}.".format(
-                        pg_host, group_ou, domain
-                    )
-                )
-
                 synchronizer.synchronize(
                     group_ou, group_class, domain,
                     group_prefix, blacklist

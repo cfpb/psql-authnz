@@ -130,7 +130,10 @@ class Synchronizer:
             raise e
 
         self.logger.info(
-            "Retrieved {} group(s) to synchronize.".format(len(groups))
+            "Retrieved {0} group(s) to synchronize: {1}".format(
+                len(groups),
+                groups
+            )
         )
 
         return groups
@@ -177,7 +180,6 @@ class Synchronizer:
             username = username.split("@")[0]
             users.append(username)
 
-        self.logger.debug("User list from LDAP: {}".format(users))
         return users
 
     def add_pgident_mapping(self, user):
@@ -447,6 +449,12 @@ class Synchronizer:
         return True
 
     def synchronize(self, group_ou, group_class, domain, prefix, blacklist):
+        logging.info(
+            "*** Synchronizing Postgres AuthNZ to {},{}. ***".format(
+                pg_host, group_ou, domain
+            )
+        )
+
         group_count = 0
         for group in self.get_groups(group_ou, group_class, domain):
             if self.synchronize_group(group, prefix, blacklist):
@@ -457,7 +465,7 @@ class Synchronizer:
                 )
 
         self.logger.info(
-            "Successfully synchronized {} group(s) from {},{}".format(
+            "*** Successfully synchronized {} group(s) from {},{} ***".format(
                 group_count, group_ou, domain
             )
         )
