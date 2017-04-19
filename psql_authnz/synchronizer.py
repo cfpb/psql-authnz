@@ -230,7 +230,12 @@ class Synchronizer:
         Removes users in 'role_name' that are not in 'authorized_users'
         """
         lowercase_users = map(lambda x: x.lower(), authorized_users)
-        self.logger.debug("Current group users: {0}".format(authorized_users))
+        self.logger.debug(
+            "Authorized users for role {0}: {1}".format(
+                role_name,
+                authorized_users
+            )
+        )
 
         try:
             self.psql_cur.execute(
@@ -250,7 +255,12 @@ class Synchronizer:
             raise e
 
         current_members = self.psql_cur.fetchall()
-        self.logger.debug("Current group members: {}".format(current_members))
+        self.logger.debug(
+            "Actual users in role {0}: {1}".format(
+                role_name,
+                current_members
+            )
+        )
 
         for member in current_members:
             member = member[0]
