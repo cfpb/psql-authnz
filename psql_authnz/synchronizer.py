@@ -136,6 +136,9 @@ class Synchronizer:
             )
         )
 
+        for group in groups:
+            self.logger.debug("Found group: {0}".format(group[0]))
+
         return groups
 
     def extract_users(self, group_members):
@@ -399,9 +402,7 @@ class Synchronizer:
         """
         group_name = group[1]['cn'][0]
         group_members = group[1]['member']
-        self.logger.debug(
-            "Synchronizing group {0}...".format(group_name)
-        )
+
         self.logger.debug(
             "Group '{0}' has members: {1}".format(
                 group_name, group_members
@@ -493,11 +494,19 @@ class Synchronizer:
 
         group_count = 0
         for group in self.get_groups(group_ou, group_class, domain):
+            try:
+                group_name = group[1]['cn'][0]
+            except Exception as e:
+                self.logger.error("Failed to get group name from: {0}".format(group))
+                self.logger.error("Error was {0}".format(e))
+
+            self.logger.debug("Synchronizing group: {0}".format(group_name))
+
             if self.synchronize_group(group, prefix, blacklist):
                 group_count += 1
             else:
                 self.logger.error(
-                    "Failed to syncronize group: {0}".format(group)
+                    "Failed to syncronize group: {0}".format(group_name)
                 )
 
         self.logger.info(
