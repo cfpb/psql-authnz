@@ -136,6 +136,9 @@ class Synchronizer:
             )
         )
 
+        for group in groups:
+            self.logger.debug("Found group: {0}".format(group[0]))
+
         return groups
 
     def extract_users(self, group_members):
@@ -397,11 +400,14 @@ class Synchronizer:
         """
         Syncronize the membership between an LDAP group and a PostgreSQL role
         """
-        group_name = group[1]['cn'][0]
-        group_members = group[1]['member']
-        self.logger.debug(
-            "Synchronizing group {0}...".format(group_name)
-        )
+
+        try:
+            group_name = group[1]['cn'][0]
+            group_members = group[1]['member']
+        except Exception as e:
+            self.logger.error("Failed to retrieve group name and members: {0}".format(e))
+            return False
+
         self.logger.debug(
             "Group '{0}' has members: {1}".format(
                 group_name, group_members
@@ -416,7 +422,7 @@ class Synchronizer:
         if role_match:
             role_name = role_match.groups('role_name')[0]
         else:
-            self.logger.debug(
+            self.logger.warning(
                 "Group '{0}' did not match the pattern, skipping...".format(
                     group_name
                 )
@@ -424,7 +430,7 @@ class Synchronizer:
             return False
 
         if role_name in blacklist:
-            self.logger.debug(
+            self.logger.info(
                 "Skipping group '{0}' which is on the blacklist.".format(
                     group_name
                 )
@@ -439,7 +445,7 @@ class Synchronizer:
             result = self.psql_cur.fetchone()
         except psycopg2.Error as e:
             self.logger.error(unicode(e.message).encode('utf-8'))
-            raise PSQLAuthnzPSQLException()
+            return False
 
         if not result or result[0] == 0:
             self.logger.warning(
@@ -452,10 +458,10 @@ class Synchronizer:
         # Second, extract each member from the list.
         try:
             authorized_users = self.extract_users(group_members)
-        except:
+        except Exception as e:
             self.logger.error(
-                "Failed to extract users from LDAP for {0}".format(
-                    group_name
+                "Failed to extract users from LDAP for {0}: {1}".format(
+                    group_name, e
                 )
             )
             return False
@@ -463,10 +469,10 @@ class Synchronizer:
         # Third, add authorized users to the role
         try:
             self.add_authorized_users(role_name, authorized_users)
-        except:
+        except Exception as e:
             self.logger.error(
-                "Failed to add users to the PG role for group {}.".format(
-                    group_name
+                "Failed to add users to the PG role for group {0}: {1}".format(
+                    group_name, e
                 )
             )
             return False
@@ -474,10 +480,10 @@ class Synchronizer:
         # Lastly, remove all users that are not on the list
         try:
             self.purge_unauthorized_users(role_name, authorized_users)
-        except:
+        except Exception as e:
             self.logger.error(
-                "Failed to remove unauthorized users from group {}.".format(
-                    group_name
+                "Failed to remove unauthorized users from group {0}: {1}".format(
+                    group_name, e
                 )
             )
             return False
@@ -493,11 +499,20 @@ class Synchronizer:
 
         group_count = 0
         for group in self.get_groups(group_ou, group_class, domain):
+            try:
+                group_name = group[1]['cn'][0]
+            except Exception as e:
+                self.logger.error(
+                    "Failed to get group name from {0}: {1}".format(group, e)
+                )
+
+            self.logger.debug("Synchronizing group: {0}".format(group_name))
+
             if self.synchronize_group(group, prefix, blacklist):
                 group_count += 1
             else:
                 self.logger.error(
-                    "Failed to syncronize group: {0}".format(group)
+                    "Failed to syncronize group: {0}".format(group_name)
                 )
 
         self.logger.info(
