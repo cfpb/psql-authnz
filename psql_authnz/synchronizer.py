@@ -422,7 +422,7 @@ class Synchronizer:
         if role_match:
             role_name = role_match.groups('role_name')[0]
         else:
-            self.logger.debug(
+            self.logger.warning(
                 "Group '{0}' did not match the pattern, skipping...".format(
                     group_name
                 )
@@ -430,7 +430,7 @@ class Synchronizer:
             return False
 
         if role_name in blacklist:
-            self.logger.debug(
+            self.logger.info(
                 "Skipping group '{0}' which is on the blacklist.".format(
                     group_name
                 )
@@ -458,10 +458,10 @@ class Synchronizer:
         # Second, extract each member from the list.
         try:
             authorized_users = self.extract_users(group_members)
-        except:
+        except Exception as e:
             self.logger.error(
-                "Failed to extract users from LDAP for {0}".format(
-                    group_name
+                "Failed to extract users from LDAP for {0}: {1}".format(
+                    group_name, e
                 )
             )
             return False
@@ -469,10 +469,10 @@ class Synchronizer:
         # Third, add authorized users to the role
         try:
             self.add_authorized_users(role_name, authorized_users)
-        except:
+        except Exception as e:
             self.logger.error(
-                "Failed to add users to the PG role for group {}.".format(
-                    group_name
+                "Failed to add users to the PG role for group {0}: {1}".format(
+                    group_name, e
                 )
             )
             return False
@@ -480,10 +480,10 @@ class Synchronizer:
         # Lastly, remove all users that are not on the list
         try:
             self.purge_unauthorized_users(role_name, authorized_users)
-        except:
+        except Exception as e:
             self.logger.error(
-                "Failed to remove unauthorized users from group {}.".format(
-                    group_name
+                "Failed to remove unauthorized users from group {0}: {1}".format(
+                    group_name, e
                 )
             )
             return False
