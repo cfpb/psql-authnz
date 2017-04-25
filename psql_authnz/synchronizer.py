@@ -400,8 +400,13 @@ class Synchronizer:
         """
         Syncronize the membership between an LDAP group and a PostgreSQL role
         """
-        group_name = group[1]['cn'][0]
-        group_members = group[1]['member']
+
+        try:
+            group_name = group[1]['cn'][0]
+            group_members = group[1]['member']
+        except Exception as e:
+            self.logger.error("Failed to retrieve group name and members: {0}".format(e))
+            return False
 
         self.logger.debug(
             "Group '{0}' has members: {1}".format(
@@ -440,7 +445,7 @@ class Synchronizer:
             result = self.psql_cur.fetchone()
         except psycopg2.Error as e:
             self.logger.error(unicode(e.message).encode('utf-8'))
-            raise PSQLAuthnzPSQLException()
+            return False
 
         if not result or result[0] == 0:
             self.logger.warning(
@@ -497,8 +502,9 @@ class Synchronizer:
             try:
                 group_name = group[1]['cn'][0]
             except Exception as e:
-                self.logger.error("Failed to get group name from: {0}".format(group))
-                self.logger.error("Error was {0}".format(e))
+                self.logger.error(
+                    "Failed to get group name from {0}: {1}".format(group, e)
+                )
 
             self.logger.debug("Synchronizing group: {0}".format(group_name))
 
