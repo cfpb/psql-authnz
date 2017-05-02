@@ -9,7 +9,8 @@ from .exceptions import PSQLAuthnzLDAPException, PSQLAuthnzPSQLException
 
 
 class Synchronizer:
-    def __init__(self, global_groups=None, logger=None, pg_ident_file=None):
+    def __init__(self, global_groups=None, logger=None, pg_ident_file=None,
+        username_field="userPrinicpalName"):
         """
         Initializes a syncronizer, with placeholders for the LDAP and PSQL
         connections, plus an optional `global_groups` variable for groups
@@ -170,10 +171,18 @@ class Synchronizer:
                     raise e
 
                 if member_attrs:
-                    username = member_attrs[0][1]["sAMAccountName"][0]
+                    try:
+                        username = member_attrs[0][1][username_field][0]
+                    except (IndexError, KeyError, ValueError) as e:
+                        self.logger.error(
+                            "Failed to get username from attrs: {0}".format(
+                                member_attrs)
+                            )
+                        )
+                        raise e
                 else:
                     self.logger.warning(
-                        "Couldn't extract username from {}, skipping...".format(
+                        "Couldn't extract username for {}, skipping...".format(
                             member
                         )
                     )
@@ -236,7 +245,7 @@ class Synchronizer:
             lambda x: x.lower().replace("'", "").replace('"', ""),
             authorized_users
         )
-        
+
         self.logger.debug(
             "Authorized users for role {0}: {1}".format(
                 role_name,
@@ -300,7 +309,7 @@ class Synchronizer:
         """
         for user in authorized_users:
             lowercase_user = user.lower().replace("'", "").replace('"', "")
-            
+
             # First, check if the user role exists, and create it if it does not
             try:
                 self.psql_cur.execute(
