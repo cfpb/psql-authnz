@@ -297,7 +297,8 @@ class Synchronizer:
         Ensure 'authorized_users' are in 'role_name'
         """
         for user in authorized_users:
-            lowercase_user = user.lower()
+            lowercase_user = user.lower().replace("'", "").replace('"', "")
+            
             # First, check if the user role exists, and create it if it does not
             try:
                 self.psql_cur.execute(
