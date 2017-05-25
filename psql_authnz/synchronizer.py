@@ -234,7 +234,10 @@ class Synchronizer:
         """
         Removes users in 'role_name' that are not in 'authorized_users'
         """
-        lowercase_users = map(lambda x: x.lower(), authorized_users)
+        lowercase_users = map(
+            lambda x: x.lower().replace("'", "").replace('"', ""),
+                      authorized_users
+        )
         self.logger.debug(
             "Authorized users for role {0}: {1}".format(
                 role_name,
@@ -298,7 +301,7 @@ class Synchronizer:
         """
         for user in authorized_users:
             lowercase_user = user.lower().replace("'", "").replace('"', "")
-            
+
             # First, check if the user role exists, and create it if it does not
             try:
                 self.psql_cur.execute(
