@@ -170,7 +170,7 @@ class Synchronizer:
                     raise e
 
                 if member_attrs:
-                    username = member_attrs[0][1]["userPrincipalName"][0]
+                    username = member_attrs[0][1]["sAMAccountName"][0]
                 else:
                     self.logger.warning(
                         "Couldn't extract username from {}, skipping...".format(
@@ -179,8 +179,6 @@ class Synchronizer:
                     )
                     continue
 
-            # Remove anything after an @
-            username = username.split("@")[0]
             users.append(username)
 
         return users
@@ -234,7 +232,11 @@ class Synchronizer:
         """
         Removes users in 'role_name' that are not in 'authorized_users'
         """
-        lowercase_users = map(lambda x: x.lower(), authorized_users)
+        lowercase_users = map(
+            lambda x: x.lower().replace("'", "").replace('"', ""),
+            authorized_users
+        )
+        
         self.logger.debug(
             "Authorized users for role {0}: {1}".format(
                 role_name,
