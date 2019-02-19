@@ -66,8 +66,10 @@ class Synchronizer:
             else:
                 if username and password:
                     self.logger.debug(
-                        ("Username and password provided, " +
-                        "attempting simple bind connection.")
+                        ("""
+                            Username and password provided,
+                            attempting simple bind connection.
+                        """)
                     )
                     self.ldap_conn.simple_bind_s(username, password)
                 else:
@@ -243,7 +245,7 @@ class Synchronizer:
         """
         lowercase_users = map(
             lambda x: x.lower().replace("'", "").replace('"', ""),
-            authorized_users
+                      authorized_users
         )
 
         self.logger.debug(
