@@ -180,7 +180,6 @@ class Synchronizer:
                             "Failed to get username from attrs: {0}".format(
                                 member_attrs)
                             )
-                        )
                         raise e
                 else:
                     self.logger.warning(
@@ -293,6 +292,13 @@ class Synchronizer:
                     self.psql_cur.execute(
                         "REVOKE {} FROM {}".format(role_name, member)
                     )
+                    if is_citus:
+                        self.psql_cur.execute(
+                        """
+                        'SELECT RUN_COMMAND_ON_WORKERS($CMD$ REVOKE {} FROM {} $CMD$)
+                        """.format(role_name, member)
+                    )
+
                 except psycopg2.Error as e:
                     self.logger.error(unicode(e.message).encode('utf-8'))
                     raise PSQLAuthnzPSQLException()
@@ -305,7 +311,7 @@ class Synchronizer:
             # TODO: Look up each user in LDAP and make sure they
             # still exist and are active
 
-    def add_authorized_users(self, role_name, authorized_users):
+    def add_authorized_users(self, role_name, authorized_users, is_citus):
         """
         Ensure 'authorized_users' are in 'role_name'
         """
@@ -337,6 +343,13 @@ class Synchronizer:
                             NOCREATEDB NOCREATEROLE
                         """.format(lowercase_user)
                     )
+                    if is_citus:
+                        self.psql_cur.execute(
+                            """
+                            'SELECT RUN_COMMAND_ON_WORKERS($CMD$ CREATE ROLE \"{}\" LOGIN INHERIT NOSUPERUSER \
+                                NOCREATEDB NOCREATEROLE $CMD$)'
+                            """.format(lowercase_user)
+                        )
                 except psycopg2.Error as e:
                     self.logger.error(unicode(e.message).encode('utf-8'))
                     raise PSQLAuthnzPSQLException()
@@ -355,6 +368,12 @@ class Synchronizer:
                             self.psql_cur.execute(
                                 """
                                 GRANT {0} TO {1}
+                                """.format(group, lowercase_user)
+                            )
+                            if is_citus:
+                                self.psql_cur.execute(
+                                """
+                                'SELECT RUN_COMMAND_ON_WORKERS($CMD$ GRANT {0} TO {1} $CMD$)'
                                 """.format(group, lowercase_user)
                             )
                         except psycopg2.Error as e:
@@ -403,6 +422,12 @@ class Synchronizer:
                             role_name, lowercase_user
                         )
                     )
+                    if is_citus:
+                        self.psql_cur.execute(
+                        """
+                        'SELECT RUN_COMMAND_ON_WORKERS($CMD$ GRANT \"{}\" TO \"{}\" $CMD$)
+                        """.format(role_name, lowercase_user)
+                    )
                 except psycopg2.Error as e:
                     self.logger.error(unicode(e.message).encode('utf-8'))
                     raise PSQLAuthnzPSQLException()
@@ -410,7 +435,7 @@ class Synchronizer:
                     self.logger.error(unicode(e.message).encode('utf-8'))
                     raise e
 
-    def synchronize_group(self, group, prefix, blacklist):
+    def synchronize_group(self, group, prefix, blacklist, is_citus):
         """
         Syncronize the membership between an LDAP group and a PostgreSQL role
         """
@@ -482,7 +507,7 @@ class Synchronizer:
 
         # Third, add authorized users to the role
         try:
-            self.add_authorized_users(role_name, authorized_users)
+            self.add_authorized_users(role_name, authorized_users, is_citus)
         except Exception as e:
             self.logger.error(
                 "Failed to add users to the PG role for group {0}: {1}".format(
@@ -493,7 +518,7 @@ class Synchronizer:
 
         # Lastly, remove all users that are not on the list
         try:
-            self.purge_unauthorized_users(role_name, authorized_users)
+            self.purge_unauthorized_users(role_name, authorized_users, is_citus)
         except Exception as e:
             self.logger.error(
                 "Failed to remove unauthorized users from group {0}: {1}".format(
