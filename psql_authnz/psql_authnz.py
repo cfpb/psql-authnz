@@ -31,7 +31,7 @@ def main():
     pg_host         = os.getenv("PGHOST", None)
     pg_user         = os.getenv("PGUSER", None)
     pg_password     = os.getenv("PGPASSWORD", None)
-    is_citus        = os.getenv("IS_CITUS", 0)
+    is_citus        = os.getenv("PSQL_AUTHNZ_IS_CITUS", 0)
     exit_code       = 0
 
     # These are groups that all users should be a part of.
@@ -69,7 +69,7 @@ def main():
                           logger=logger,
                           pg_ident_file=pg_ident_file,
                           username_field=fieldname,
-			  citus=is_citus) as synchronizer:
+			             is_citus=is_citus) as synchronizer:
 
             try:
                 synchronizer.connect_to_ldap(
@@ -81,7 +81,7 @@ def main():
                 )
                 synchronizer.synchronize(
                     group_ou, group_class, domain,
-                    group_prefix, blacklist, is_citus
+                    group_prefix, blacklist
                 )
 
             except PSQLAuthnzException as e:
