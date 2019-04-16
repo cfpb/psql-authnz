@@ -68,7 +68,8 @@ def main():
         with Synchronizer(global_groups=global_groups,
                           logger=logger,
                           pg_ident_file=pg_ident_file,
-                          username_field=fieldname) as synchronizer:
+                          username_field=fieldname,
+			  citus=is_citus) as synchronizer:
 
             try:
                 synchronizer.connect_to_ldap(

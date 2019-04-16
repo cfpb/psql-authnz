@@ -10,7 +10,7 @@ from .exceptions import PSQLAuthnzLDAPException, PSQLAuthnzPSQLException
 
 class Synchronizer:
     def __init__(self, global_groups=None, logger=None, pg_ident_file=None,
-        username_field="userPrinicpalName"):
+        username_field="userPrinicpalName",is_citus=0):
         """
         Initializes a syncronizer, with placeholders for the LDAP and PSQL
         connections, plus an optional `global_groups` variable for groups
@@ -22,6 +22,7 @@ class Synchronizer:
         self.global_groups = global_groups
         self.logger = logger or logging.getLogger(__name__)
         self.pg_ident_file = pg_ident_file
+        self.is_citus= is_citus
 
     def __enter__(self):
         return self
@@ -292,10 +293,10 @@ class Synchronizer:
                     self.psql_cur.execute(
                         "REVOKE {} FROM {}".format(role_name, member)
                     )
-                    if is_citus:
+                    if self.is_citus:
                         self.psql_cur.execute(
                         """
-                        'SELECT RUN_COMMAND_ON_WORKERS($CMD$ REVOKE {} FROM {} $CMD$)
+                        SELECT RUN_COMMAND_ON_WORKERS($CMD$ REVOKE {} FROM {} $CMD$)
                         """.format(role_name, member)
                     )
 
@@ -311,7 +312,7 @@ class Synchronizer:
             # TODO: Look up each user in LDAP and make sure they
             # still exist and are active
 
-    def add_authorized_users(self, role_name, authorized_users, is_citus):
+    def add_authorized_users(self, role_name, authorized_users):
         """
         Ensure 'authorized_users' are in 'role_name'
         """
@@ -337,23 +338,24 @@ class Synchronizer:
             if not result or result[0] == 0:
                 self.logger.info("Creating new role '{}'".format(lowercase_user))
                 try:
-                    self.psql_cur.execute(
-                        """
+                    query = """
                         CREATE ROLE \"{}\" LOGIN INHERIT NOSUPERUSER \
                             NOCREATEDB NOCREATEROLE
                         """.format(lowercase_user)
-                    )
-                    if is_citus:
-                        self.psql_cur.execute(
-                            """
-                            'SELECT RUN_COMMAND_ON_WORKERS($CMD$ CREATE ROLE \"{}\" LOGIN INHERIT NOSUPERUSER \
-                                NOCREATEDB NOCREATEROLE $CMD$)'
-                            """.format(lowercase_user)
-                        )
+                    self.logger.debug("Running query {}".format(query))
+                    self.psql_cur.execute(query)
                 except psycopg2.Error as e:
                     self.logger.error(unicode(e.message).encode('utf-8'))
                     raise PSQLAuthnzPSQLException()
 
+                if self.is_citus:
+                    self.logger.debug("Creating user role {} on Citus workers.".format(lowercase_user))
+                    query = """
+                       SELECT run_command_on_workers($cmd$ CREATE ROLE {} LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE $cmd$)
+                       """.format(lowercase_user)
+                    self.logger.debug("Running query {}".format(query)) 
+                    self.psql_cur.execute(query)
+                
                 self.add_pgident_mapping(user)
 
                 if self.global_groups:
@@ -370,10 +372,10 @@ class Synchronizer:
                                 GRANT {0} TO {1}
                                 """.format(group, lowercase_user)
                             )
-                            if is_citus:
+                            if self.is_citus:
                                 self.psql_cur.execute(
                                 """
-                                'SELECT RUN_COMMAND_ON_WORKERS($CMD$ GRANT {0} TO {1} $CMD$)'
+                                SELECT RUN_COMMAND_ON_WORKERS($CMD$ GRANT {0} TO {1} $CMD$)
                                 """.format(group, lowercase_user)
                             )
                         except psycopg2.Error as e:
@@ -422,10 +424,10 @@ class Synchronizer:
                             role_name, lowercase_user
                         )
                     )
-                    if is_citus:
+                    if self.is_citus:
                         self.psql_cur.execute(
                         """
-                        'SELECT RUN_COMMAND_ON_WORKERS($CMD$ GRANT \"{}\" TO \"{}\" $CMD$)
+                        SELECT RUN_COMMAND_ON_WORKERS($CMD$ GRANT {} TO {} $CMD$)
                         """.format(role_name, lowercase_user)
                     )
                 except psycopg2.Error as e:
@@ -435,9 +437,9 @@ class Synchronizer:
                     self.logger.error(unicode(e.message).encode('utf-8'))
                     raise e
 
-    def synchronize_group(self, group, prefix, blacklist, is_citus):
+    def synchronize_group(self, group, prefix, blacklist):
         """
-        Syncronize the membership between an LDAP group and a PostgreSQL role
+        Synchronize the membership between an LDAP group and a PostgreSQL role
         """
 
         try:
@@ -507,7 +509,7 @@ class Synchronizer:
 
         # Third, add authorized users to the role
         try:
-            self.add_authorized_users(role_name, authorized_users, is_citus)
+            self.add_authorized_users(role_name, authorized_users)
         except Exception as e:
             self.logger.error(
                 "Failed to add users to the PG role for group {0}: {1}".format(
@@ -518,7 +520,7 @@ class Synchronizer:
 
         # Lastly, remove all users that are not on the list
         try:
-            self.purge_unauthorized_users(role_name, authorized_users, is_citus)
+            self.purge_unauthorized_users(role_name, authorized_users)
         except Exception as e:
             self.logger.error(
                 "Failed to remove unauthorized users from group {0}: {1}".format(
@@ -535,6 +537,9 @@ class Synchronizer:
                 group_ou, domain
             )
         )
+
+        if self.is_citus:
+            self.logger.debug("Running in Citus mode.")
 
         group_count = 0
         for group in self.get_groups(group_ou, group_class, domain):
