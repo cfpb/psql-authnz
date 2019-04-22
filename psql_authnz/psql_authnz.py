@@ -20,7 +20,7 @@ def main():
     ldap_port       = os.getenv("PSQL_AUTHNZ_LDAP_PORT", "389")
     domain          = os.getenv("PSQL_AUTHNZ_LDAP_DOMAIN", "dc=test,dc=dev")
     method          = os.getenv("PSQL_AUTHNZ_LDAP_METHOD", "SIMPLE")
-    fieldname       = os.getenv("PSQL_AUTHNZ_LDAP_FIELD", "userPrincipalName")  # The LDAP field to use as username
+    fieldname       = os.getenv("PSQL_AUTHNZ_LDAP_FIELD", "userPrincipalName")  #The LDAP field to use as username
     group_ou        = os.getenv("PSQL_AUTHNZ_GROUP_OU", "ou=Groups")
     group_class     = os.getenv("PSQL_AUTHNZ_GROUP_CLASS", "groupOfNames")
     global_groups   = os.getenv("PSQL_AUTHNZ_GLOBAL_GROUPS", None)
@@ -31,6 +31,7 @@ def main():
     pg_host         = os.getenv("PGHOST", None)
     pg_user         = os.getenv("PGUSER", None)
     pg_password     = os.getenv("PGPASSWORD", None)
+    is_citus        = os.getenv("PSQL_AUTHNZ_IS_CITUS", 0)
     exit_code       = 0
 
     # These are groups that all users should be a part of.
@@ -67,7 +68,8 @@ def main():
         with Synchronizer(global_groups=global_groups,
                           logger=logger,
                           pg_ident_file=pg_ident_file,
-                          username_field=fieldname) as synchronizer:
+                          username_field=fieldname,
+                          is_citus=is_citus) as synchronizer:
 
             try:
                 synchronizer.connect_to_ldap(
