@@ -1,0 +1,11 @@
+[Unit]
+Description=Run psql-authnz script to sync AD and citus groups
+
+[Service]
+Restart=always
+User=postgres
+ExecStart=/bin/sh -c 'cd /opt/psql-authnz && source /opt/psql-authnz.env/bin/activate && python /opt/psql-authnz/psql_authnz.py start'
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
