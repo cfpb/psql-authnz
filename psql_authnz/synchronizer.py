@@ -23,6 +23,7 @@ class Synchronizer:
         self.logger = logger or logging.getLogger(__name__)
         self.pg_ident_file = pg_ident_file
         self.is_citus = is_citus
+        self.username_field = username_field
 
     def __enter__(self):
         return self
@@ -175,7 +176,7 @@ class Synchronizer:
 
                 if member_attrs:
                     try:
-                        username = member_attrs[0][1][username_field][0]
+                        username = member_attrs[0][1][self.username_field][0]
                     except (IndexError, KeyError, ValueError) as e:
                         self.logger.error(
                             "Failed to get username from attrs: {0}".format(
