@@ -31,6 +31,7 @@ def main():
     pg_host         = os.getenv("PGHOST", None)
     pg_user         = os.getenv("PGUSER", None)
     pg_password     = os.getenv("PGPASSWORD", None)
+    default_db        = os.getenv("PSQL_AUTHNZ_DEFAULT_DB_NAME", None)
     is_citus        = os.getenv("PSQL_AUTHNZ_IS_CITUS", 0)
     exit_code       = 0
 
@@ -69,7 +70,8 @@ def main():
                           logger=logger,
                           pg_ident_file=pg_ident_file,
                           username_field=fieldname,
-                          is_citus=is_citus) as synchronizer:
+                          is_citus=is_citus,
+                          default_db=default_db) as synchronizer:
 
             try:
                 synchronizer.connect_to_ldap(
