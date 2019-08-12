@@ -10,7 +10,7 @@ from .exceptions import PSQLAuthnzLDAPException, PSQLAuthnzPSQLException
 
 class Synchronizer:
     def __init__(self, global_groups=None, logger=None, pg_ident_file=None,
-        username_field="userPrinicpalName", is_citus=0):
+        username_field="userPrinicpalName", is_citus=0, default_db=None):
         """
         Initializes a syncronizer, with placeholders for the LDAP and PSQL
         connections, plus an optional `global_groups` variable for groups
@@ -24,6 +24,7 @@ class Synchronizer:
         self.pg_ident_file = pg_ident_file
         self.is_citus = is_citus
         self.username_field = username_field
+        self.default_db = default_db
 
     def __enter__(self):
         return self
@@ -349,6 +350,18 @@ class Synchronizer:
                     self.logger.error(unicode(e.message).encode('utf-8'))
                     raise PSQLAuthnzPSQLException()
 
+                if self.default_db is not None:
+                    self.logger.debug("Allowing {0} to connect to db {1}.".format(lowercase_user, self.default_db))
+                    try:
+                        query = """
+                           GRANT CONNECT ON DATABASE \"{0}\" TO \"{1}\"
+                           """.format(self.default_db, lowercase_user)
+                        self.logger.debug("Running query {}".format(query)) 
+                        self.psql_cur.execute(query)
+                    except psycopg2.Error as e:
+                        self.logger.error(unicode(e.message).encode('utf-8'))
+                        raise PSQLAuthnzPSQLException()
+
                 if self.is_citus:
                     self.logger.debug("Creating user role {} on Citus workers.".format(lowercase_user))
                     query = """
@@ -356,6 +369,14 @@ class Synchronizer:
                        """.format(lowercase_user)
                     self.logger.debug("Running query {}".format(query)) 
                     self.psql_cur.execute(query)
+
+                    if self.default_db is not None:
+                        self.logger.debug("Allowing {0} to connect to db {1} on Citus Workers.".format(lowercase_user, self.default_db))
+                        query = """
+                           SELECT run_command_on_workers($cmd$ GRANT CONNECT ON DATABASE {0} TO {1} $cmd$)
+                           """.format(self.default_db, lowercase_user)
+                        self.logger.debug("Running query {}".format(query)) 
+                        self.psql_cur.execute(query)
                 
                 self.add_pgident_mapping(user)
 
