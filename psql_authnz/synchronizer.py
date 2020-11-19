@@ -479,7 +479,7 @@ class Synchronizer:
 
         role_match = None
         role_match = re.search(
-            '^{}(?P<role_name>[a-z0-9_]+)'.format(prefix), group_name
+            '^{}(?P<role_name>[a-zA-Z0-9_]+)'.format(prefix), group_name
         )
 
         if role_match:
