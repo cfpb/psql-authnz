@@ -43,18 +43,16 @@ class Synchronizer:
         self.logger.debug("Attempting to connect to LDAP...")
 
         try:
-            conn_string = "{}://{}:{}".format(ldap_protocol,
-                                              ldap_host,
-                                              ldap_port)
+            conn_string = f"{ldap_protocol}://{ldap_host}:{ldap_port}"
 
-            self.logger.debug("Connection string: {0}".format(conn_string))
+            self.logger.debug(f"Connection string: {conn_string}")
 
             self.ldap_conn = ldap.initialize(conn_string)
             self.ldap_conn.set_option(ldap.OPT_REFERRALS, 0)
 
             # If a username and password is provided, we assume
             # SASL's DIGESTMD5 authentication method.
-            self.logger.debug("Auth using method: {0}".format(method))
+            self.logger.debug(f"Auth using method: {method}")
             if method == "DIGESTMD5":
                 if username and password:
                     self.logger.debug(("Username and password provided," +
@@ -99,7 +97,7 @@ class Synchronizer:
         if pg_password:
             conn_string += " password={}".format(pg_password)
 
-        self.logger.debug("Connection string: {0}".format(conn_string))
+        self.logger.debug(f"Connection string: {conn_string}")
         try:
             self.psql_conn = psycopg2.connect(conn_string)
             self.psql_conn.autocommit = True
@@ -119,31 +117,25 @@ class Synchronizer:
         try:
             groups_search_base = group_ou + ',' + domain
             self.logger.debug(
-                "Group search base: {0}".format(groups_search_base)
+                f"Group search base: {groups_search_base}"
             )
             groups = self.ldap_conn.search_s(
                 groups_search_base,
                 ldap.SCOPE_SUBTREE,
-                "(objectClass={0})".format(group_class)
+                f"(objectClass={group_class})"
             )
 
         except ldap.LDAPError as e:
             self.logger.error(str(e).encode('utf-8'))
-            raise PSQLAuthnzLDAPException(
-                "Failed to get groups from the specified OU."
-            )
+            raise PSQLAuthnzLDAPException("Failed to get groups from the specified OU.")
         except Exception as e:
             self.logger.error(str(e).encode('utf-8'))
             raise e
 
-        self.logger.info(
-            "Retrieved {0} group(s) to synchronize...".format(
-                len(groups)
-            )
-        )
+        self.logger.info(f"Retrieved {groups} group(s) to synchronize...")
 
         for group in groups:
-            self.logger.debug("Found group: {0}".format(group[0]))
+            self.logger.debug(f"Found group: {group[0]}")
 
         return groups
 
@@ -157,9 +149,7 @@ class Synchronizer:
             )
             if user_match:
                 username = user_match.groups('username')[0]
-                self.logger.debug(
-                    "Extracted username '{}' from '{}'".format(username, member)
-                )
+                self.logger.debug(f"Extracted username '{username}' from '{member}'")
             else:
                 try:
                     # UID not contained in DN, attempt to retrieve it via LDAP.
@@ -179,17 +169,10 @@ class Synchronizer:
                     try:
                         username = member_attrs[0][1][self.username_field][0]
                     except (IndexError, KeyError, ValueError) as e:
-                        self.logger.error(
-                            "Failed to get username from attrs: {0}".format(
-                                member_attrs)
-                            )
+                        self.logger.error(f"Failed to get username from attrs: {member_attrs}")
                         raise e
                 else:
-                    self.logger.warning(
-                        "Couldn't extract username for {}, skipping...".format(
-                            member
-                        )
-                    )
+                    self.logger.warning("Couldn't extract username for {member}, skipping...")
                     continue
 
             users.append(username)
@@ -210,29 +193,17 @@ class Synchronizer:
 
             for line in pg_ident_entries:
                 if user in line:
-                    self.logger.debug(
-                        "pg_ident entry found for user {}: {}".format(
-                            user, line
-                        )
-                    )
+                    self.logger.debug(f"pg_ident entry found for user {user}: {line}")
                     line_found = True
 
             if not line_found:
-                self.logger.debug(
-                    "No pg_ident entry found, creating entry for {}".format(
-                        user
-                    )
-                )
+                self.logger.debug(f"No pg_ident entry found, creating entry for {user}")
                 pg_ident = open(self.pg_ident_file, 'a')
-                pg_ident.write("krb\t{}\t{}\n".format(user, user.lower()))
+                pg_ident.write("krb\t{user}\t{user.lower()}\n")
                 pg_ident.close()
 
         except IOError as e:
-            self.logger.error(
-                "Error updating pg_ident file: {}".format(
-                    str(e).encode('utf-8')
-                )
-            )
+            self.logger.error(f"Error updating pg_ident file: {str(e)}")
 
     def remove_pgident_mapping(self, user):
         """
@@ -247,22 +218,17 @@ class Synchronizer:
         """
         lowercase_users = [x.lower().replace("'", "").replace('"', "") for x in authorized_users]
 
-        self.logger.debug(
-            "Authorized users for role {0}: {1}".format(
-                role_name,
-                authorized_users
-            )
-        )
+        self.logger.debug(f"Authorized users for role {role_name}: {authorized_users}")
 
         try:
             self.psql_cur.execute(
-                """
+                f"""
                 SELECT m.rolname as member
                     FROM pg_authid p
                     INNER JOIN pg_auth_members ON (p.oid=pg_auth_members.roleid)
                     INNER JOIN pg_authid m ON (pg_auth_members.member = m.oid)
-                    WHERE p.rolname = '{}'
-                """.format(role_name)
+                    WHERE p.rolname = '{role_name}'
+                """
             )
         except psycopg2.Error as e:
             self.logger.error(str(e).encode('utf-8'))
@@ -272,31 +238,19 @@ class Synchronizer:
             raise e
 
         current_members = self.psql_cur.fetchall()
-        self.logger.debug(
-            "Actual users in role {0}: {1}".format(
-                role_name,
-                current_members
-            )
-        )
+        self.logger.debug(f"Actual users in role {role_name}: {current_members}")
 
         for member in current_members:
             member = member[0]
             if member not in lowercase_users:
-                self.logger.info(
-                    "Removing user '{}' from group '{}'".format(
-                        member, role_name
-                    )
-                )
-
+                self.logger.info(f"Removing user '{member}' from group '{role_name}'")
                 try:
-                    self.psql_cur.execute(
-                        "REVOKE {} FROM {}".format(role_name, member)
-                    )
+                    self.psql_cur.execute(f"REVOKE {role_name} FROM {member}")
                     if self.is_citus:
                         self.psql_cur.execute(
+                        f"""
+                        SELECT RUN_COMMAND_ON_WORKERS($CMD$ REVOKE {role_name} FROM {member} $CMD$)
                         """
-                        SELECT RUN_COMMAND_ON_WORKERS($CMD$ REVOKE {} FROM {} $CMD$)
-                        """.format(role_name, member)
                     )
 
                 except psycopg2.Error as e:
@@ -321,10 +275,10 @@ class Synchronizer:
             # First, check if the user role exists, and create it if it does not
             try:
                 self.psql_cur.execute(
-                    """
+                    f"""
                     SELECT 1 FROM pg_roles
-                        WHERE rolname='{0}' AND rolcanlogin='t'
-                    """.format(lowercase_user)
+                        WHERE rolname='{lowercase_user}' AND rolcanlogin='t'
+                    """
                 )
                 result = self.psql_cur.fetchone()
             except psycopg2.Error as e:
@@ -335,67 +289,59 @@ class Synchronizer:
                 raise e
 
             if not result or result[0] == 0:
-                self.logger.info("Creating new role '{}'".format(lowercase_user))
+                self.logger.info(f"Creating new role '{lowercase_user}'")
                 try:
-                    query = """
-                        CREATE ROLE \"{}\" LOGIN INHERIT NOSUPERUSER \
+                    query = f"""
+                        CREATE ROLE \"{lowercase_user}\" LOGIN INHERIT NOSUPERUSER \
                             NOCREATEDB NOCREATEROLE
-                        """.format(lowercase_user)
-                    self.logger.debug("Running query {}".format(query))
+                        """
+                    self.logger.debug(f"Running query {query}")
                     self.psql_cur.execute(query)
                 except psycopg2.Error as e:
                     self.logger.error(str(e).encode('utf-8'))
                     raise PSQLAuthnzPSQLException()
 
                 if self.default_db is not None:
-                    self.logger.debug("Allowing {0} to connect to db {1}.".format(lowercase_user, self.default_db))
+                    self.logger.debug(f"Allowing {lowercase_user} to connect to db {self.default_db}.")
                     try:
-                        query = """
-                           GRANT CONNECT ON DATABASE \"{0}\" TO \"{1}\"
-                           """.format(self.default_db, lowercase_user)
-                        self.logger.debug("Running query {}".format(query)) 
+                        query = f"""
+                           GRANT CONNECT ON DATABASE \"{self.default_db}\" TO \"{lowercase_user}\"
+                           """
+                        self.logger.debug(f"Running query {query}")
                         self.psql_cur.execute(query)
                     except psycopg2.Error as e:
                         self.logger.error(str(e).encode('utf-8'))
                         raise PSQLAuthnzPSQLException()
 
                 if self.is_citus:
-                    self.logger.debug("Creating user role {} on Citus workers.".format(lowercase_user))
-                    query = """
-                       SELECT run_command_on_workers($cmd$ CREATE ROLE {} LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE $cmd$)
-                       """.format(lowercase_user)
-                    self.logger.debug("Running query {}".format(query)) 
+                    self.logger.debug(f"Creating user role {lowercase_user} on Citus workers.")
+                    query = f"""
+                       SELECT run_command_on_workers($cmd$ CREATE ROLE {lowercase_user} LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE $cmd$)
+                       """
+                    self.logger.debug(f"Running query {query}")
                     self.psql_cur.execute(query)
 
                     if self.default_db is not None:
-                        self.logger.debug("Allowing {0} to connect to db {1} on Citus Workers.".format(lowercase_user, self.default_db))
-                        query = """
-                           SELECT run_command_on_workers($cmd$ GRANT CONNECT ON DATABASE {0} TO {1} $cmd$)
-                           """.format(self.default_db, lowercase_user)
-                        self.logger.debug("Running query {}".format(query)) 
+                        self.logger.debug(f"Allowing {lowercase_user} to connect to db {self.default_db} on Citus Workers.")
+                        query = f"""
+                           SELECT run_command_on_workers($cmd$ GRANT CONNECT ON DATABASE {self.default_db} TO {lowercase_user} $cmd$)
+                           """
+                        self.logger.debug(f"Running query {query}")
                         self.psql_cur.execute(query)
                 
                 self.add_pgident_mapping(user)
 
                 if self.global_groups:
-                    self.logger.info(
-                        "Adding new user {0} to global groups: {1}".format(
-                            lowercase_user, ", ".join(self.global_groups)
-                        )
-                    )
+                    self.logger.info(f"Adding new user {lowercase_user} to global groups: {', '.join(self.global_groups)}")
 
                     for group in self.global_groups:
                         try:
-                            self.psql_cur.execute(
-                                """
-                                GRANT {0} TO {1}
-                                """.format(group, lowercase_user)
-                            )
+                            self.psql_cur.execute(f"GRANT {group} TO {lowercase_user}")
                             if self.is_citus:
                                 self.psql_cur.execute(
+                                f"""
+                                SELECT RUN_COMMAND_ON_WORKERS($CMD$ GRANT {group} TO {lowercase_user} $CMD$)
                                 """
-                                SELECT RUN_COMMAND_ON_WORKERS($CMD$ GRANT {0} TO {1} $CMD$)
-                                """.format(group, lowercase_user)
                             )
                         except psycopg2.Error as e:
                             self.logger.error(
@@ -411,14 +357,14 @@ class Synchronizer:
             # Then, add the user to the role if not already present.
             try:
                 self.psql_cur.execute(
-                    """
+                    f"""
                     SELECT 1 FROM pg_authid g
                         INNER JOIN pg_auth_members ON
                             (g.oid=pg_auth_members.roleid)
                         INNER JOIN pg_authid u ON
                             (pg_auth_members.member=u.oid)
-                        WHERE g.rolname = '{0}' AND u.rolname = '{1}'
-                    """.format(role_name, lowercase_user)
+                        WHERE g.rolname = '{role_name}' AND u.rolname = '{lowercase_user}'
+                    """
                 )
                 result = self.psql_cur.fetchone()
             except psycopg2.Error as e:
@@ -434,20 +380,14 @@ class Synchronizer:
 
             # If the role has not already been granted...
             if not result or result[0] == 0:
-                self.logger.info("Adding user {0} to role {1}".format(
-                    lowercase_user, role_name
-                ))
+                self.logger.info(f"Adding user {lowercase_user} to role {role_name}")
                 try:
-                    self.psql_cur.execute(
-                        "GRANT \"{}\" TO \"{}\"".format(
-                            role_name, lowercase_user
-                        )
-                    )
+                    self.psql_cur.execute(f"GRANT \"{role_name}\" TO \"{lowercase_user}\"")
                     if self.is_citus:
                         self.psql_cur.execute(
+                        f"""
+                        SELECT RUN_COMMAND_ON_WORKERS($CMD$ GRANT {role_name} TO {lowercase_user} $CMD$)
                         """
-                        SELECT RUN_COMMAND_ON_WORKERS($CMD$ GRANT {} TO {} $CMD$)
-                        """.format(role_name, lowercase_user)
                     )
                 except psycopg2.Error as e:
                     self.logger.error(str(e).encode('utf-8'))
@@ -465,37 +405,25 @@ class Synchronizer:
             group_name = group[1]['cn'][0]
             group_members = group[1]['employeeType']
         except Exception as e:
-            self.logger.error("Failed to retrieve group name and members: {0}".format(e))
+            self.logger.error(f"Failed to retrieve group name and members: {e}")
             return False
 
-        self.logger.debug(
-            "Group '{0}' has members: {1}".format(
-                group_name, group_members
-            )
-        )
+        self.logger.debug(f"Group '{group_name}' has members: {group_members}")
 
         group_name = group_name.decode('utf-8')
         role_match = None
         role_match = re.search(
-            '^{}(?P<role_name>[a-zA-Z0-9_]+)'.format(prefix), group_name
+            f'^{prefix}(?P<role_name>[a-zA-Z0-9_]+)', group_name
         )
 
         if role_match:
             role_name = role_match.groups('role_name')[0]
         else:
-            self.logger.warning(
-                "Group '{0}' did not match the pattern, skipping...".format(
-                    group_name
-                )
-            )
+            self.logger.warning(f"Group '{group_name}' did not match the pattern, skipping...")
             return False
 
         if role_name in blacklist:
-            self.logger.info(
-                "Skipping group '{0}' which is on the blacklist.".format(
-                    group_name
-                )
-            )
+            self.logger.info(f"Skipping group '{group_name}' which is on the blacklist.")
             return False
 
         # First, ensure that the role exists
@@ -510,55 +438,34 @@ class Synchronizer:
             return False
 
         if not result or result[0] == 0:
-            self.logger.warning(
-                "Group {0} does not have a PG role, skipping...".format(
-                    group_name
-                )
-            )
+            self.logger.warning(f"Group {group_name} does not have a PG role, skipping...")
             return False
 
         # Second, extract each member from the list.
         try:
             authorized_users = self.extract_users(group_members)
         except Exception as e:
-            self.logger.error(
-                "Failed to extract users from LDAP for {0}: {1}".format(
-                    group_name, e
-                )
-            )
+            self.logger.error(f"Failed to extract users from LDAP for {group_name}: {e}")
             return False
 
         # Third, add authorized users to the role
         try:
             self.add_authorized_users(role_name, authorized_users)
         except Exception as e:
-            self.logger.error(
-                "Failed to add users to the PG role for group {0}: {1}".format(
-                    group_name, e
-                )
-            )
+            self.logger.error(f"Failed to add users to the PG role for group {group_name}: {e}")
             return False
 
         # Lastly, remove all users that are not on the list
         try:
             self.purge_unauthorized_users(role_name, authorized_users)
         except Exception as e:
-            self.logger.error(
-                "Failed to remove unauthorized users from group {0}: {1}".format(
-                    group_name, e
-                )
-            )
+            self.logger.error(f"Failed to remove unauthorized users from group {group_name}: {e}")
             return False
 
         return True
 
     def synchronize(self, group_ou, group_class, domain, prefix, blacklist):
-        self.logger.info(
-            "*** Synchronizing Postgres AuthNZ to {0},{1}. ***".format(
-                group_ou, domain
-            )
-        )
-
+        self.logger.info(f"*** Synchronizing Postgres AuthNZ to {group_ou},{domain}. ***")
         if self.is_citus:
             self.logger.debug("Running in Citus mode.")
 
@@ -567,21 +474,13 @@ class Synchronizer:
             try:
                 group_name = group[1]['cn'][0]
             except Exception as e:
-                self.logger.error(
-                    "Failed to get group name from {0}: {1}".format(group, e)
-                )
+                self.logger.error(f"Failed to get group name from {group}: {e}")
 
-            self.logger.debug("Synchronizing group: {0}".format(group_name))
+            self.logger.debug(f"Synchronizing group: {group_name}")
 
             if self.synchronize_group(group, prefix, blacklist):
                 group_count += 1
             else:
-                self.logger.error(
-                    "Failed to syncronize group: {0}".format(group_name)
-                )
+                self.logger.error(f"Failed to syncronize group: {group_name}")
 
-        self.logger.info(
-            "*** Successfully synchronized {} group(s) from {},{} ***".format(
-                group_count, group_ou, domain
-            )
-        )
+        self.logger.info(f"*** Successfully synchronized {group_count} group(s) from {group_ou},{domain} ***")

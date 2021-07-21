@@ -87,11 +87,11 @@ def main():
                 )
 
             except PSQLAuthnzException as e:
-                logging.error("Fatal synchronization error: {0}".format(e))
+                logging.error(f"Fatal synchronization error: {e}")
                 time.sleep(5)
                 exit_code = 1
             except Exception as e:
-                logging.error("Unexpected error encountered: {0}".format(e))
+                logging.error(f"Unexpected error encountered: {e}")
                 time.sleep(5)
                 exit_code = 1
 
