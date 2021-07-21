@@ -83,7 +83,7 @@ class Synchronizer:
                     self.ldap_conn.simple_bind_s()
 
         except Exception as e:
-            logging.error(unicode(e.message).encode('utf-8'))
+            logging.error(str(e).encode('utf-8'))
             raise PSQLAuthnzLDAPException()
 
     def connect_to_psql(self, pg_user, pg_host, pg_password):
@@ -105,10 +105,10 @@ class Synchronizer:
             self.psql_conn.autocommit = True
             self.psql_cur = self.psql_conn.cursor()
         except psycopg2.Error as e:
-            self.logger.error(unicode(e.message).encode('utf-8'))
+            self.logger.error(str(e).encode('utf-8'))
             raise PSQLAuthnzPSQLException()
         except Exception as e:
-            self.logger.error(unicode(e.message).encode('utf-8'))
+            self.logger.error(str(e).encode('utf-8'))
             raise e
 
     def get_groups(self, group_ou, group_class, domain):
@@ -127,13 +127,13 @@ class Synchronizer:
                 "(objectClass={0})".format(group_class)
             )
 
-        except ldap.LDAPError, e:
-            self.logger.error(unicode(e.message).encode('utf-8'))
+        except ldap.LDAPError as e:
+            self.logger.error(str(e).encode('utf-8'))
             raise PSQLAuthnzLDAPException(
                 "Failed to get groups from the specified OU."
             )
         except Exception as e:
-            self.logger.error(unicode(e.message).encode('utf-8'))
+            self.logger.error(str(e).encode('utf-8'))
             raise e
 
         self.logger.info(
@@ -151,10 +151,10 @@ class Synchronizer:
         users = []
         for member in group_members:
             # Get the actual username
+            member = member.decode("utf-8")
             user_match = re.search(
                 "uid=(?P<username>[a-zA-Z0-9\_\-\.\/\@]+),.*", member
             )
-
             if user_match:
                 username = user_match.groups('username')[0]
                 self.logger.debug(
@@ -166,13 +166,13 @@ class Synchronizer:
                     member_attrs = self.ldap_conn.search_s(
                         member, ldap.SCOPE_BASE, "(objectClass=*)"
                     )
-                except ldap.LDAPError, e:
-                    self.logger.error(unicode(e.message).encode('utf-8'))
+                except ldap.LDAPError as e:
+                    self.logger.error(str(e).encode('utf-8'))
                     raise PSQLAuthnzLDAPException(
                         "Failed to retrieve user attributes from supplied DN."
                     )
                 except Exception as e:
-                    self.logger.error(unicode(e.message).encode('utf-8'))
+                    self.logger.error(str(e).encode('utf-8'))
                     raise e
 
                 if member_attrs:
@@ -230,7 +230,7 @@ class Synchronizer:
         except IOError as e:
             self.logger.error(
                 "Error updating pg_ident file: {}".format(
-                    unicode(e.message).encode('utf-8')
+                    str(e).encode('utf-8')
                 )
             )
 
@@ -245,10 +245,7 @@ class Synchronizer:
         """
         Removes users in 'role_name' that are not in 'authorized_users'
         """
-        lowercase_users = map(
-            lambda x: x.lower().replace("'", "").replace('"', ""),
-                      authorized_users
-        )
+        lowercase_users = [x.lower().replace("'", "").replace('"', "") for x in authorized_users]
 
         self.logger.debug(
             "Authorized users for role {0}: {1}".format(
@@ -268,10 +265,10 @@ class Synchronizer:
                 """.format(role_name)
             )
         except psycopg2.Error as e:
-            self.logger.error(unicode(e.message).encode('utf-8'))
+            self.logger.error(str(e).encode('utf-8'))
             raise PSQLAuthnzPSQLException()
         except Exception as e:
-            self.logger.error(unicode(e.message).encode('utf-8'))
+            self.logger.error(str(e).encode('utf-8'))
             raise e
 
         current_members = self.psql_cur.fetchall()
@@ -303,10 +300,10 @@ class Synchronizer:
                     )
 
                 except psycopg2.Error as e:
-                    self.logger.error(unicode(e.message).encode('utf-8'))
+                    self.logger.error(str(e).encode('utf-8'))
                     raise PSQLAuthnzPSQLException()
                 except Exception as e:
-                    self.logger.error(unicode(e.message).encode('utf-8'))
+                    self.logger.error(str(e).encode('utf-8'))
                     raise e
 
                 self.logger.debug(self.psql_cur.statusmessage)
@@ -331,10 +328,10 @@ class Synchronizer:
                 )
                 result = self.psql_cur.fetchone()
             except psycopg2.Error as e:
-                self.logger.error(unicode(e.message).encode('utf-8'))
+                self.logger.error(str(e).encode('utf-8'))
                 raise PSQLAuthnzPSQLException()
             except Exception as e:
-                self.logger.error(unicode(e.message).encode('utf-8'))
+                self.logger.error(str(e).encode('utf-8'))
                 raise e
 
             if not result or result[0] == 0:
@@ -347,7 +344,7 @@ class Synchronizer:
                     self.logger.debug("Running query {}".format(query))
                     self.psql_cur.execute(query)
                 except psycopg2.Error as e:
-                    self.logger.error(unicode(e.message).encode('utf-8'))
+                    self.logger.error(str(e).encode('utf-8'))
                     raise PSQLAuthnzPSQLException()
 
                 if self.default_db is not None:
@@ -359,7 +356,7 @@ class Synchronizer:
                         self.logger.debug("Running query {}".format(query)) 
                         self.psql_cur.execute(query)
                     except psycopg2.Error as e:
-                        self.logger.error(unicode(e.message).encode('utf-8'))
+                        self.logger.error(str(e).encode('utf-8'))
                         raise PSQLAuthnzPSQLException()
 
                 if self.is_citus:
@@ -402,12 +399,12 @@ class Synchronizer:
                             )
                         except psycopg2.Error as e:
                             self.logger.error(
-                                unicode(e.message).encode('utf-8')
+                                str(e).encode('utf-8')
                             )
                             raise PSQLAuthnzPSQLException()
                         except Exception as e:
                             self.logger.error(
-                                unicode(e.message).encode('utf-8')
+                                str(e).encode('utf-8')
                             )
                             raise e
 
@@ -426,12 +423,12 @@ class Synchronizer:
                 result = self.psql_cur.fetchone()
             except psycopg2.Error as e:
                 self.logger.error(
-                    unicode(e.message).encode('utf-8')
+                    str(e).encode('utf-8')
                 )
                 raise PSQLAuthnzPSQLException()
             except Exception as e:
                 self.logger.error(
-                    unicode(e.message).encode('utf-8')
+                    str(e).encode('utf-8')
                 )
                 raise e
 
@@ -453,10 +450,10 @@ class Synchronizer:
                         """.format(role_name, lowercase_user)
                     )
                 except psycopg2.Error as e:
-                    self.logger.error(unicode(e.message).encode('utf-8'))
+                    self.logger.error(str(e).encode('utf-8'))
                     raise PSQLAuthnzPSQLException()
                 except Exception as e:
-                    self.logger.error(unicode(e.message).encode('utf-8'))
+                    self.logger.error(str(e).encode('utf-8'))
                     raise e
 
     def synchronize_group(self, group, prefix, blacklist):
@@ -466,7 +463,7 @@ class Synchronizer:
 
         try:
             group_name = group[1]['cn'][0]
-            group_members = group[1]['member']
+            group_members = group[1]['employeeType']
         except Exception as e:
             self.logger.error("Failed to retrieve group name and members: {0}".format(e))
             return False
@@ -477,6 +474,7 @@ class Synchronizer:
             )
         )
 
+        group_name = group_name.decode('utf-8')
         role_match = None
         role_match = re.search(
             '^{}(?P<role_name>[a-zA-Z0-9_]+)'.format(prefix), group_name
@@ -502,12 +500,13 @@ class Synchronizer:
 
         # First, ensure that the role exists
         try:
-            self.psql_cur.execute(
-                "SELECT 1 FROM pg_roles WHERE rolname='{0}'".format(role_name)
-            )
+            role_name = role_name.lower()
+            command = f"SElECT 1 FROM pg_roles WHERE rolname='{role_name}'"
+            self.logger.info(command)
+            self.psql_cur.execute(command)
             result = self.psql_cur.fetchone()
         except psycopg2.Error as e:
-            self.logger.error(unicode(e.message).encode('utf-8'))
+            self.logger.error(str(e).encode('utf-8'))
             return False
 
         if not result or result[0] == 0:
