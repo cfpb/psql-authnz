@@ -66,7 +66,7 @@ class Synchronizer:
                     )
             else:
                 if username and password:
-                    self.logger.debug(
+                    self.logger.debug,(
                         ("""
                             Username and password provided,
                             attempting simple bind connection.
@@ -116,9 +116,7 @@ class Synchronizer:
         self.logger.debug("Retriving LDAP groups...")
         try:
             groups_search_base = group_ou + ',' + domain
-            self.logger.debug(
-                f"Group search base: {groups_search_base}"
-            )
+            self.logger.debug(f"Group search base: {groups_search_base}") 
             groups = self.ldap_conn.search_s(
                 groups_search_base,
                 ldap.SCOPE_SUBTREE,
@@ -132,7 +130,7 @@ class Synchronizer:
             self.logger.error(e)
             raise e
 
-        self.logger.info(f"Retrieved {groups} group(s) to synchronize...")
+        self.logger.info(f"Retrieved {len(groups)} group(s) to synchronize...")
 
         for group in groups:
             self.logger.debug(f"Found group: {group[0]}")
@@ -175,7 +173,8 @@ class Synchronizer:
                     self.logger.warning("Couldn't extract username for {member}, skipping...")
                     continue
 
-            users.append(username)
+            
+            users.append(str(username, "utf-8"))
 
         return users
 
@@ -395,7 +394,8 @@ class Synchronizer:
 
         try:
             group_name = group[1]['cn'][0]
-            group_members = group[1]['employeeType']
+            self.logger.info(f"{group[1].keys()}")
+            group_members = group[1]['member']
         except Exception as e:
             self.logger.error(f"Failed to retrieve group name and members: {e}")
             return False

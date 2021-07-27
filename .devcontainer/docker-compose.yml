@@ -1,0 +1,73 @@
+version: '3'
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+      args:
+        VARIANT: 3
+        INSTALL_NODE: "false"
+        NODE_VERSION: "lts/*"
+        USER_UID: 1000
+        USER_GID: 1000
+    volumes:
+      - ..:/workspace:cached
+    environment:
+      PSQL_AUTHNZ_LDAP_HOST: openldap 
+      PSQL_AUTHNZ_LDAP_PORT: 389
+      PSQL_AUTHNZ_LDAP_FIELD: sn
+      PSQL_AUTHNZ_GROUP_CLASS: groupOfNames
+      PSQL_AUTHNZ_LDAP_DOMAIN: dc=example,dc=org
+      PSQL_AUTHNZ_GROUP_OU: ou=Groups
+      PSQL_AUTHNZ_LOG_LEVEL: debug
+      PSQL_AUTHNZ_LDAP_USERNAME: cn=admin,dc=example,dc=org
+      PSQL_AUTHNZ_LDAP_PASSWORD: admin 
+      PSQL_AUTHNZ_DEFAULT_DB_NAME: postgres
+      PGHOST: db
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    command: sleep infinity
+    network_mode: service:db
+
+  db:
+    image: postgres:latest
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: postgres
+
+  openldap:
+    image: osixia/openldap:1.5.0
+    container_name: openldap
+    domainname: "example.org"
+    hostname: "openldap"
+    command: --copy-service
+    environment:
+      LDAP_LOG_LEVEL: "256"
+      LDAP_ORGANISATION: "Example Inc."
+      LDAP_DOMAIN: "example.org"
+      LDAP_BASE_DN: "dc=example,dc=org"
+      LDAP_ADMIN_PASSWORD: "admin"
+      LDAP_CONFIG_PASSWORD: "config"
+      LDAP_READONLY_USER: "false"
+      LDAP_READONLY_USER_USERNAME: "readonly"
+      LDAP_READONLY_USER_PASSWORD: "readonly"
+      LDAP_BACKEND: "mdb"
+    volumes:
+      - ./bootstrap.ldif:/container/service/slapd/assets/config/bootstrap/ldif/50-bootstrap.ldif
+      - /var/lib/ldap
+      - /etc/ldap/slapd.d
+      - /container/service/slapd/assets/certs/
+    ports:
+      - "389:389"
+      - "636:636"
+  ldap_server_admin:
+    image: osixia/phpldapadmin:0.7.2
+    ports:
+      - 8080:80
+    environment:
+      PHPLDAPADMIN_LDAP_HOSTS: "openldap"
+      PHPLDAPADMIN_HTTPS: 'false'
+      depends_on: "openldap"
