@@ -7,33 +7,36 @@ import time
 from .synchronizer import Synchronizer
 from .exceptions import PSQLAuthnzException
 
+
 def main():
+    """Entrypoint into psql_authnz"""
+
     # Retrieve settings from environment variables
-    psql_period     = os.getenv("PSQL_AUTHNZ_PERIOD", 300)
-    log_level       = os.getenv("PSQL_AUTHNZ_LOG_LEVEL", "info")
-    log_file        = os.getenv("PSQL_AUTHNZ_LOG_FILE", None)
-    group_prefix    = os.getenv("PSQL_AUTHNZ_PREFIX", "")
-    username        = os.getenv("PSQL_AUTHNZ_LDAP_USERNAME", None)
-    password        = os.getenv("PSQL_AUTHNZ_LDAP_PASSWORD", None)
-    ldap_protocol   = os.getenv("PSQL_AUTHNZ_LDAP_PROTOCOL", "ldap")
-    ldap_host       = os.getenv("PSQL_AUTHNZ_LDAP_HOST", "10.0.1.127")
-    ldap_port       = os.getenv("PSQL_AUTHNZ_LDAP_PORT", "389")
-    domain          = os.getenv("PSQL_AUTHNZ_LDAP_DOMAIN", "dc=test,dc=dev")
-    method          = os.getenv("PSQL_AUTHNZ_LDAP_METHOD", "SIMPLE")
-    fieldname       = os.getenv("PSQL_AUTHNZ_LDAP_FIELD", "userPrincipalName")
-    group_ou        = os.getenv("PSQL_AUTHNZ_GROUP_OU", "ou=Groups")
-    group_class     = os.getenv("PSQL_AUTHNZ_GROUP_CLASS", "groupOfNames")
-    global_groups   = os.getenv("PSQL_AUTHNZ_GLOBAL_GROUPS", None)
-    blacklist       = os.getenv("PSQL_AUTHNZ_BLACKLIST", "").split(",")
-    logstash_host   = os.getenv("PSQL_AUTHNZ_LOGSTASH_HOST", None)
-    logstash_port   = os.getenv("PSQL_AUTHNZ_LOGSTASH_PORT", None)
-    pg_ident_file   = os.getenv("PSQL_AUTHNZ_PG_IDENT_FILE", None)
-    pg_host         = os.getenv("PGHOST", None)
-    pg_user         = os.getenv("PGUSER", None)
-    pg_password     = os.getenv("PGPASSWORD", None)
-    default_db        = os.getenv("PSQL_AUTHNZ_DEFAULT_DB_NAME", None)
-    is_citus        = os.getenv("PSQL_AUTHNZ_IS_CITUS", 0)
-    exit_code       = 0
+    psql_period = os.getenv("PSQL_AUTHNZ_PERIOD", 300)
+    log_level = os.getenv("PSQL_AUTHNZ_LOG_LEVEL", "info")
+    log_file = os.getenv("PSQL_AUTHNZ_LOG_FILE", None)
+    group_prefix = os.getenv("PSQL_AUTHNZ_PREFIX", "")
+    username = os.getenv("PSQL_AUTHNZ_LDAP_USERNAME", None)
+    password = os.getenv("PSQL_AUTHNZ_LDAP_PASSWORD", None)
+    ldap_protocol = os.getenv("PSQL_AUTHNZ_LDAP_PROTOCOL", "ldap")
+    ldap_host = os.getenv("PSQL_AUTHNZ_LDAP_HOST", "10.0.1.127")
+    ldap_port = os.getenv("PSQL_AUTHNZ_LDAP_PORT", "389")
+    domain = os.getenv("PSQL_AUTHNZ_LDAP_DOMAIN", "dc=test,dc=dev")
+    method = os.getenv("PSQL_AUTHNZ_LDAP_METHOD", "SIMPLE")
+    fieldname = os.getenv("PSQL_AUTHNZ_LDAP_FIELD", "userPrincipalName")
+    group_ou = os.getenv("PSQL_AUTHNZ_GROUP_OU", "ou=Groups")
+    group_class = os.getenv("PSQL_AUTHNZ_GROUP_CLASS", "groupOfNames")
+    global_groups = os.getenv("PSQL_AUTHNZ_GLOBAL_GROUPS", None)
+    blacklist = os.getenv("PSQL_AUTHNZ_BLACKLIST", "").split(",")
+    logstash_host = os.getenv("PSQL_AUTHNZ_LOGSTASH_HOST", None)
+    logstash_port = os.getenv("PSQL_AUTHNZ_LOGSTASH_PORT", None)
+    pg_ident_file = os.getenv("PSQL_AUTHNZ_PG_IDENT_FILE", None)
+    pg_host = os.getenv("PGHOST", None)
+    pg_user = os.getenv("PGUSER", None)
+    pg_password = os.getenv("PGPASSWORD", None)
+    default_db = os.getenv("PSQL_AUTHNZ_DEFAULT_DB_NAME", None)
+    is_citus = os.getenv("PSQL_AUTHNZ_IS_CITUS", 0)
+    exit_code = 0
 
     # These are groups that all users should be a part of.
     if global_groups:
@@ -43,9 +46,11 @@ def main():
     logger = logging.getLogger(__name__)
     logger.setLevel(getattr(logging, log_level.upper()))
 
-    LOG_FORMAT = ("%(asctime)-15s PSQL-AUTHNZ " +
-                 "[%(levelname)-5s]:" +
-                 "%(filename)-15s:%(lineno)-3s - %(message)s")
+    LOG_FORMAT = (
+        "%(asctime)-15s PSQL-AUTHNZ "
+        + "[%(levelname)-5s]:"
+        + "%(filename)-15s:%(lineno)-3s - %(message)s"
+    )
 
     if log_file:
         file_handler = logging.FileHandler(log_file)
@@ -60,30 +65,30 @@ def main():
         logstash_handler = logstash.TCPLogstashHandler(
             logstash_host,
             int(logstash_port),
-            tags=["psql-authnz",],
-            version=1
+            tags=[
+                "psql-authnz",
+            ],
+            version=1,
         )
         logger.addHandler(logstash_handler)
 
     while exit_code == 0:
-        with Synchronizer(logger,
-                          global_groups=global_groups,
-                          pg_ident_file=pg_ident_file,
-                          field_name=fieldname,
-                          is_citus=is_citus,
-                          default_db=default_db) as synchronizer:
+        with Synchronizer(
+            logger,
+            global_groups=global_groups,
+            pg_ident_file=pg_ident_file,
+            field_name=fieldname,
+            is_citus=is_citus,
+            default_db=default_db,
+        ) as synchronizer:
 
             try:
                 synchronizer.connect_to_ldap(
-                    ldap_protocol, ldap_host, ldap_port,
-                    username, password, method
+                    ldap_protocol, ldap_host, ldap_port, username, password, method
                 )
-                synchronizer.connect_to_psql(
-                    pg_user, pg_host, pg_password
-                )
+                synchronizer.connect_to_psql(pg_user, pg_host, pg_password)
                 synchronizer.synchronize(
-                    group_ou, group_class, domain,
-                    group_prefix, blacklist
+                    group_ou, group_class, domain, group_prefix, blacklist
                 )
 
             except PSQLAuthnzException as e:
