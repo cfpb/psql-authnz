@@ -35,7 +35,7 @@ def main():
     pg_user = os.getenv("PGUSER", None)
     pg_password = os.getenv("PGPASSWORD", None)
     default_db = os.getenv("PSQL_AUTHNZ_DEFAULT_DB_NAME", None)
-    is_citus = os.getenv("PSQL_AUTHNZ_IS_CITUS", 0)
+    is_citus = bool(os.getenv("PSQL_AUTHNZ_IS_CITUS", 0))
     exit_code = 0
 
     # These are groups that all users should be a part of.

@@ -297,9 +297,8 @@ class Synchronizer:
             return
 
         try:
-            pg_ident = open(self.pg_ident_file, "r")
-            pg_ident_entries = pg_ident.readlines()
-            pg_ident.close()
+            with open(self.pg_ident_file, "r") as f:
+                pg_ident_entries = f.readlines()
 
             line_found = False
 
@@ -310,9 +309,8 @@ class Synchronizer:
 
             if not line_found:
                 self.logger.debug(f"No pg_ident entry found, creating entry for {user}")
-                pg_ident = open(self.pg_ident_file, "a")
-                pg_ident.write("krb\t{user}\t{user.lower()}\n")
-                pg_ident.close()
+                with open(self.pg_ident_file, "a") as f:
+                    f.write("krb\t{user}\t{user.lower()}\n")
 
         except IOError as e:
             self.logger.error(f"Error updating pg_ident file: {str(e)}")
