@@ -20,7 +20,7 @@ def main():
     ldap_port       = os.getenv("PSQL_AUTHNZ_LDAP_PORT", "389")
     domain          = os.getenv("PSQL_AUTHNZ_LDAP_DOMAIN", "dc=test,dc=dev")
     method          = os.getenv("PSQL_AUTHNZ_LDAP_METHOD", "SIMPLE")
-    fieldname       = os.getenv("PSQL_AUTHNZ_LDAP_FIELD", "userPrincipalName")  #The LDAP field to use as username
+    fieldname       = os.getenv("PSQL_AUTHNZ_LDAP_FIELD", "userPrincipalName")
     group_ou        = os.getenv("PSQL_AUTHNZ_GROUP_OU", "ou=Groups")
     group_class     = os.getenv("PSQL_AUTHNZ_GROUP_CLASS", "groupOfNames")
     global_groups   = os.getenv("PSQL_AUTHNZ_GLOBAL_GROUPS", None)
@@ -66,10 +66,10 @@ def main():
         logger.addHandler(logstash_handler)
 
     while exit_code == 0:
-        with Synchronizer(global_groups=global_groups,
-                          logger=logger,
+        with Synchronizer(logger,
+                          global_groups=global_groups,
                           pg_ident_file=pg_ident_file,
-                          username_field=fieldname,
+                          field_name=fieldname,
                           is_citus=is_citus,
                           default_db=default_db) as synchronizer:
 
