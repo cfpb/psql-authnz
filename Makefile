@@ -7,3 +7,5 @@ sync:
 init: req
 	psql -c "CREATE ROLE users LOGIN;"
 	psql -c "CREATE ROLE admins LOGIN;"
+	psql -c "CREATE ROLE contractors LOGIN;"
+	psql -c "CREATE ROLE team LOGIN;"

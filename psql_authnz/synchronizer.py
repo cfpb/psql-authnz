@@ -189,7 +189,7 @@ class Synchronizer:
 
             To target this one, it would be:
                 group_ou: Groups
-                domain: dc=example,dc=rog
+                domain: dc=example,dc=org
                 group_class: groupOfNames
 
         Args:
@@ -268,6 +268,17 @@ class Synchronizer:
                     raise e
 
                 if member_attrs:
+                    # First check if this is actually a nested group
+                    member_type = ','.join([x.decode('utf-8') for x in member_attrs[0][1].get('objectClass', ['unknown'])])
+                    self.logger.debug(
+                        f"Member is of type: { member_type }"
+                    )
+
+                    if 'groupOfNames' in member_type:
+                        users.extend(self.extract_users(member_attrs[0][1].get('member', [])))
+                        continue
+
+                    # Not a nested group, so extract username
                     try:
                         username = member_attrs[0][1][self.field_name][0]
                     except (IndexError, KeyError, ValueError) as e:
@@ -549,13 +560,18 @@ class Synchronizer:
 
         group_name = group_name.decode("utf-8")
         role_match = None
-        role_match = re.search(f"^{prefix}(?P<role_name>[a-zA-Z0-9_]+)", group_name)
+        role_name = None
 
-        if role_match:
-            role_name = role_match.groups("role_name")[0]
-        else:
+        for p in prefix.split(','):
+            role_match = re.search(f"^{p}(?P<role_name>[a-zA-Z0-9_]+)", group_name)
+
+            if role_match:
+                role_name = role_match.groups("role_name")[0]
+                break
+
+        if not role_name:
             self.logger.warning(
-                f"Group '{group_name}' did not match the pattern, skipping..."
+                f"Group '{group_name}' did not match any prefix pattern, skipping..."
             )
             return False
 
@@ -620,7 +636,7 @@ class Synchronizer:
             group_ou (str): Group OU to target
             group_class (str): Group class to target for retrieval
             domain (str): Domain to target
-            prefix (str): Prefix to search on in the role
+            prefix (str): Prefix(es) to search on in the role
             blacklist (list): List of users to no include
         """
         self.logger.info(

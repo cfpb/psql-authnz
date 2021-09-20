@@ -33,7 +33,7 @@ changetype: add
 objectclass: inetOrgPerson
 cn: user_gh
 givenname: user_gh
-sn: UseGH 
+sn: UserGH 
 displayname: User Github Account
 mail: user_gh@gmail.com
 userpassword: user_gh_pass
@@ -47,6 +47,16 @@ sn: UserServer
 displayname: Server User
 mail: user_server@gmail.com
 userpassword: user_server_pass
+
+dn: cn=contractor,dc=example,dc=org
+changetype: add
+objectclass: inetOrgPerson
+cn: contractor
+givenname: contractor
+sn: Contractor
+displayname: Contractor
+mail: contractor@gmail.com
+userpassword: contractor_pass
 
 dn: ou=Groups,dc=example,dc=org
 changetype: add
@@ -68,3 +78,16 @@ objectclass: groupOfNames
 member: cn=user_gh,dc=example,dc=org
 member: cn=user_server,dc=example,dc=org
 member: cn=super,dc=example,dc=org
+
+dn: cn=Contractors,ou=Groups,dc=example,dc=org
+changetype: add
+cn: Contractors
+objectclass: groupOfNames
+member: cn=contractor,dc=example,dc=org
+
+dn: cn=Team,ou=Groups,dc=example,dc=org
+changetype: add
+cn: Team
+objectclass: groupOfNames
+member: cn=Contractors,ou=Groups,dc=example,dc=org
+member: cn=Users,ou=Groups,dc=example,dc=org

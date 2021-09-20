@@ -3,16 +3,11 @@ version: '3'
 services:
   app:
     build:
-      context: ..
-      dockerfile: .devcontainer/Dockerfile
-      args:
-        VARIANT: 3
-        INSTALL_NODE: "false"
-        NODE_VERSION: "lts/*"
-        USER_UID: 1000
-        USER_GID: 1000
+      context: .
+      dockerfile: Dockerfile
     volumes:
-      - ..:/workspace:cached
+      - .:/workspace:cached
+      - /var/run/docker.sock:/var/run/docker.sock 
     environment:
       PSQL_AUTHNZ_LDAP_HOST: openldap 
       PSQL_AUTHNZ_LDAP_PORT: 389
@@ -66,7 +61,7 @@ services:
   ldap_server_admin:
     image: osixia/phpldapadmin:0.7.2
     ports:
-      - 8080:80
+      - 8097:80
     environment:
       PHPLDAPADMIN_LDAP_HOSTS: "openldap"
       PHPLDAPADMIN_HTTPS: 'false'
