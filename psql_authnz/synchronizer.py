@@ -268,15 +268,20 @@ class Synchronizer:
                     raise e
 
                 if member_attrs:
-                    # First check if this is actually a nested group
+                    member_cn = member_attrs[0][1].get('cn', '')[0].decode('utf-8')
+
+                    # First check if this is actually a nested group.  If so, recurse
                     member_type = ','.join([x.decode('utf-8') for x in member_attrs[0][1].get('objectClass', ['unknown'])])
-                    member_dn = member_attrs[0][1].get('member', [])
                     self.logger.debug(
-                        f"Member {member_dn} is of type: { member_type }"
+                        f"Member {member_cn} is of type: { member_type }"
                     )
 
                     if 'groupOfNames' in member_type or 'group' in member_type:
-                        users.extend(self.extract_users(member_dn))
+                        self.logger.debug(
+                            f"Member {member_cn} is a nested group, recursing..."
+                        )
+                        members = member_attrs[0][1].get('member', [])
+                        users.extend(self.extract_users(members))
                         continue
 
                     # Not a nested group, so extract username
@@ -377,12 +382,16 @@ class Synchronizer:
             if member not in lowercase_users:
                 self.logger.info(f"Removing user '{member}' from group '{role_name}'")
                 try:
-                    self.psql_cursor.execute(f"REVOKE {role_name} FROM {member}")
+                    self.psql_cursor.execute(
+                        f"""
+                        REVOKE "{role_name}" FROM "{member}"
+                        """
+                    )
                     if self.is_citus:
                         self.psql_cursor.execute(
                             f"""
-                        SELECT RUN_COMMAND_ON_WORKERS($CMD$ REVOKE {role_name} FROM {member} $CMD$)
-                        """
+                            SELECT RUN_COMMAND_ON_WORKERS($CMD$ REVOKE "{role_name}" FROM "{member}" $CMD$)
+                            """
                         )
 
                 except psycopg2.Error as e:
@@ -447,7 +456,7 @@ class Synchronizer:
                     )
                     try:
                         query = f"""
-                           GRANT CONNECT ON DATABASE \"{self.default_db}\" TO \"{lowercase_user}\"
+                           GRANT CONNECT ON DATABASE "{self.default_db}" TO "{lowercase_user}"
                            """
                         self.logger.debug(f"Running query {query}")
                         self.psql_cursor.execute(query)
@@ -460,7 +469,7 @@ class Synchronizer:
                         f"Creating user role {lowercase_user} on Citus workers."
                     )
                     query = f"""
-                       SELECT run_command_on_workers($cmd$ CREATE ROLE {lowercase_user} LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE $cmd$)
+                       SELECT run_command_on_workers($cmd$ CREATE ROLE "{lowercase_user}" LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE $cmd$)
                        """
                     self.logger.debug(f"Running query {query}")
                     self.psql_cursor.execute(query)
@@ -470,7 +479,7 @@ class Synchronizer:
                             f"Allowing {lowercase_user} to connect to db {self.default_db} on Citus Workers."
                         )
                         query = f"""
-                           SELECT run_command_on_workers($cmd$ GRANT CONNECT ON DATABASE {self.default_db} TO {lowercase_user} $cmd$)
+                           SELECT run_command_on_workers($cmd$ GRANT CONNECT ON DATABASE {self.default_db} TO "{lowercase_user}" $cmd$)
                            """
                         self.logger.debug(f"Running query {query}")
                         self.psql_cursor.execute(query)
@@ -485,13 +494,15 @@ class Synchronizer:
                     for group in self.global_groups:
                         try:
                             self.psql_cursor.execute(
-                                f"GRANT {group} TO {lowercase_user}"
+                                f"""
+                                GRANT "{group}" TO "{lowercase_user}"
+                                """
                             )
                             if self.is_citus:
                                 self.psql_cursor.execute(
                                     f"""
-                                SELECT RUN_COMMAND_ON_WORKERS($CMD$ GRANT {group} TO {lowercase_user} $CMD$)
-                                """
+                                    SELECT RUN_COMMAND_ON_WORKERS($CMD$ GRANT "{group}" TO "{lowercase_user}" $CMD$)
+                                    """
                                 )
                         except psycopg2.Error as e:
                             self.logger.error(e)
