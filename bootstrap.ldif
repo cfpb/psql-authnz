@@ -1,0 +1,93 @@
+dn: cn=super,dc=example,dc=org
+changetype: add
+objectclass: inetOrgPerson
+cn: superuser
+givenname: superuser
+sn: SuperUser 
+displayname: SuperUser
+mail: super_user@gmail.com
+userpassword: super_user
+
+dn: cn=admin_gh,dc=example,dc=org
+changetype: add
+objectclass: inetOrgPerson
+cn: admin_gh
+givenname: admin_gh
+sn: AdminGithub
+displayname: Admin Github User
+mail: admin_gh@gmail.com
+userpassword: admin_gh_pass
+
+dn: cn=admin_server,dc=example,dc=org
+changetype: add
+objectclass: inetOrgPerson
+cn: admin_server
+givenname: admin_server
+sn: AdminServer
+displayname: Admin Server User
+mail: admin_server@gmail.com
+userpassword: admin_server_pass
+
+dn: cn=user_gh,dc=example,dc=org
+changetype: add
+objectclass: inetOrgPerson
+cn: user_gh
+givenname: user_gh
+sn: UserGH 
+displayname: User Github Account
+mail: user_gh@gmail.com
+userpassword: user_gh_pass
+
+dn: cn=user_server,dc=example,dc=org
+changetype: add
+objectclass: inetOrgPerson
+cn: user_server
+givenname: user_server
+sn: UserServer
+displayname: Server User
+mail: user_server@gmail.com
+userpassword: user_server_pass
+
+dn: cn=contractor,dc=example,dc=org
+changetype: add
+objectclass: inetOrgPerson
+cn: contractor
+givenname: contractor
+sn: Contractor
+displayname: Contractor
+mail: contractor@gmail.com
+userpassword: contractor_pass
+
+dn: ou=Groups,dc=example,dc=org
+changetype: add
+objectclass: organizationalUnit
+ou: Groups
+
+dn: cn=Admins,ou=Groups,dc=example,dc=org
+changetype: add
+cn: Admins
+objectclass: groupOfNames
+member: cn=admin_gh,dc=example,dc=org
+member: cn=admin_server,dc=example,dc=org
+member: cn=super,dc=example,dc=org
+
+dn: cn=Users,ou=Groups,dc=example,dc=org
+changetype: add
+cn: Users
+objectclass: groupOfNames
+member: cn=user_gh,dc=example,dc=org
+member: cn=user_server,dc=example,dc=org
+member: cn=super,dc=example,dc=org
+
+dn: cn=Contractors,ou=Groups,dc=example,dc=org
+changetype: add
+cn: Contractors
+objectclass: groupOfNames
+member: cn=contractor,dc=example,dc=org
+
+dn: cn=Team,ou=Groups,dc=example,dc=org
+changetype: add
+cn: Team
+objectclass: groupOfNames
+member: cn=Contractors,ou=Groups,dc=example,dc=org
+member: cn=Users,ou=Groups,dc=example,dc=org
