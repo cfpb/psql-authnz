@@ -270,12 +270,13 @@ class Synchronizer:
                 if member_attrs:
                     # First check if this is actually a nested group
                     member_type = ','.join([x.decode('utf-8') for x in member_attrs[0][1].get('objectClass', ['unknown'])])
+                    member_dn = member_attrs[0][1].get('member', [])
                     self.logger.debug(
-                        f"Member is of type: { member_type }"
+                        f"Member {member_dn} is of type: { member_type }"
                     )
 
-                    if 'groupOfNames' in member_type:
-                        users.extend(self.extract_users(member_attrs[0][1].get('member', [])))
+                    if 'groupOfNames' in member_type or 'group' in member_type:
+                        users.extend(self.extract_users(member_dn))
                         continue
 
                     # Not a nested group, so extract username
